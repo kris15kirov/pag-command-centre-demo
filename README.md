@@ -1,6 +1,6 @@
 # PAG Command Centre Demo
 
-A comprehensive social media monitoring and management platform designed specifically for **Pashov Audit Group** (PAG), helping busy Web3 founders like Krum manage Telegram and Twitter communications efficiently.
+A comprehensive social media monitoring and management platform designed specifically for **Pashov Audit Group** (PAG), enabling efficient management of Telegram and Twitter communications for Web3 audit services.
 
 ## 🚀 Features
 
