@@ -1,39 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@400;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900;
+body {
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+  margin: 0;
+  padding: 0;
+}
+
+/* Web3-specific animations */
+@keyframes pulse {
+  0% { box-shadow: 0 0 5px #6b46c1; }
+  50% { box-shadow: 0 0 15px #38bdf8; }
+  100% { box-shadow: 0 0 5px #6b46c1; }
+}
+
+.web3-highlighted {
+  animation: pulse 2s infinite;
+}
+
+.web3-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+/* Custom scrollbar for Web3 theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6b46c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
+}
+
+/* Web3 button styles */
+.web3-button {
+  @apply bg-gradient-to-r from-web3-accent to-web3-highlight text-white px-4 py-2 rounded-lg 
+         hover:from-web3-highlight hover:to-web3-neon transition-all duration-300 
+         transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-web3-neon;
+}
+
+.web3-button-secondary {
+  @apply bg-web3-gray text-white px-3 py-1 rounded-md 
+         hover:bg-web3-accent transition-all duration-200 
+         border border-web3-accent hover:border-web3-highlight;
+}
+
+/* Web3 card styles */
+.web3-card {
+  @apply bg-web3-darker border border-web3-accent rounded-lg p-4 
+         hover:border-web3-highlight transition-all duration-300
+         shadow-lg hover:shadow-xl;
+}
+
+/* Web3 badge styles */
+.web3-badge {
+  @apply bg-web3-neon text-white text-xs px-2 py-1 rounded-full 
+         font-semibold animate-pulse-web3;
+}
+
+.web3-badge-urgent {
+  @apply bg-web3-red text-white text-xs px-2 py-1 rounded-full font-semibold;
+}
+
+.web3-badge-high {
+  @apply bg-web3-orange text-white text-xs px-2 py-1 rounded-full font-semibold;
+}
+
+.web3-badge-routine {
+  @apply bg-web3-highlight text-white text-xs px-2 py-1 rounded-full font-semibold;
+}
+
+/* Web3 input styles */
+.web3-input {
+  @apply bg-web3-gray border border-web3-accent text-white px-3 py-2 rounded-md
+         focus:outline-none focus:ring-2 focus:ring-web3-highlight focus:border-transparent
+         placeholder-gray-400;
+}
+
+/* Web3 select styles */
+.web3-select {
+  @apply bg-web3-gray border border-web3-accent text-white px-3 py-2 rounded-md
+         focus:outline-none focus:ring-2 focus:ring-web3-highlight focus:border-transparent;
+}
+
+/* Responsive design utilities */
+@media (max-width: 768px) {
+  .web3-card {
+    @apply p-3;
+  }
+  
+  .web3-button {
+    @apply px-3 py-1.5 text-sm;
   }
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
-  }
-  
-  .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
-  }
-  
-  .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
-  }
-  
-  .badge-urgent {
-    @apply bg-urgent-100 text-urgent-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
-  }
-  
-  .badge-high {
-    @apply bg-high-100 text-high-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
-  }
-  
-  .badge-routine {
-    @apply bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
-  }
-  
-  .badge-archive {
-    @apply bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
-  }
+/* Loading animation */
+.web3-loading {
+  @apply animate-spin rounded-full h-6 w-6 border-b-2 border-web3-highlight;
+}
+
+/* Fade in animation for new messages */
+.message-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

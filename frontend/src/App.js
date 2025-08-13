@@ -1,164 +1,231 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Twitter, Filter, Copy, Clock } from 'lucide-react';
-import MessageList from './components/MessageList';
-import Sidebar from './components/Sidebar';
-import TemplatesPanel from './components/TemplatesPanel';
-import StatsPanel from './components/StatsPanel';
-import { fetchMessages, fetchTemplates, refreshMessages, fetchStats } from './services/api';
+import axios from 'axios';
+import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaRefresh } from 'react-icons/fa';
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [filters, setFilters] = useState({
-    category: null,
-    source: null
-  });
+  const [category, setCategory] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('none');
+  const [loading, setLoading] = useState(false);
+
+  const templates = [
+    "Thanks for your audit request! Pashov Audit Group, trusted by Uniswap and Aave, will review your smart contract. We'll get back to you within 24 hours.",
+    "We've successfully audited similar protocols like LayerZero and Ethena. Your project shows great potential. Let's discuss the audit scope.",
+    "Your DeFi protocol looks promising! Based on our experience with Sushi and other DEX protocols, we can provide comprehensive security analysis.",
+    "Thank you for reaching out about your NFT project. Our team has extensive experience with NFT smart contracts and can ensure your collection is secure."
+  ];
 
   useEffect(() => {
-    loadInitialData();
+    fetchMessages();
   }, []);
 
-  const loadInitialData = async () => {
+  const fetchMessages = async () => {
     try {
       setLoading(true);
-      const [messagesData, templatesData, statsData] = await Promise.all([
-        fetchMessages(),
-        fetchTemplates(),
-        fetchStats()
-      ]);
-      
-      setMessages(messagesData);
-      setTemplates(templatesData);
-      setStats(statsData);
+      const response = await axios.get('http://localhost:8000/messages');
+      setMessages(response.data);
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = async () => {
+  const updateCategory = async (id, newCategory) => {
     try {
-      setRefreshing(true);
-      const result = await refreshMessages();
-      console.log('Refresh result:', result);
-      
-      // Reload messages and stats after refresh
-      const [messagesData, statsData] = await Promise.all([
-        fetchMessages(),
-        fetchStats()
-      ]);
-      
-      setMessages(messagesData);
-      setStats(statsData);
+      await axios.post(`http://localhost:8000/messages/${id}/category`, {
+        category: newCategory
+      });
+      setMessages(messages.map(msg => 
+        msg.id === id ? { ...msg, category: newCategory } : msg
+      ));
+    } catch (error) {
+      console.error('Error updating category:', error);
+    }
+  };
+
+  const refreshMessages = async () => {
+    try {
+      setLoading(true);
+      await axios.get('http://localhost:8000/refresh');
+      await fetchMessages();
     } catch (error) {
       console.error('Error refreshing messages:', error);
     } finally {
-      setRefreshing(false);
+      setLoading(false);
     }
   };
 
-  const handleFilterChange = async (newFilters) => {
-    setFilters(newFilters);
-    try {
-      const filteredMessages = await fetchMessages(newFilters);
-      setMessages(filteredMessages);
-    } catch (error) {
-      console.error('Error filtering messages:', error);
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const getCategoryBadgeClass = (cat) => {
+    switch (cat) {
+      case 'urgent': return 'web3-badge-urgent';
+      case 'high': return 'web3-badge-high';
+      case 'routine': return 'web3-badge-routine';
+      default: return 'web3-badge';
     }
   };
 
-  const handleCategoryUpdate = async (messageId, newCategory) => {
-    try {
-      // Update the message category
-      const response = await fetch(`/api/messages/${messageId}/category`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ category: newCategory }),
-      });
-
-      if (response.ok) {
-        // Update the message in the local state
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === messageId ? { ...msg, category: newCategory } : msg
-          )
-        );
-      }
-    } catch (error) {
-      console.error('Error updating message category:', error);
-    }
+  const getSourceIcon = (source) => {
+    return source === 'Telegram' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Comms Command Center...</p>
-        </div>
-      </div>
-    );
-  }
+  const filteredMessages = messages.filter(msg => {
+    const categoryMatch = category === 'all' || msg.category === category;
+    const projectMatch = projectFilter === 'none' || 
+      ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project => 
+        msg.text.includes(project) && projectFilter === project
+      );
+    return categoryMatch && projectMatch;
+  });
+
+  const auditedProjects = ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <MessageCircle className="h-8 w-8 text-primary-600" />
-                <h1 className="text-xl font-bold text-gray-900">Comms Command Center</h1>
+    <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter">
+      {/* Left Sidebar: Filters */}
+      <div className="w-full md:w-1/5 bg-web3-darker p-4 border-b md:border-b-0 md:border-r border-web3-accent">
+        <h2 className="text-lg font-bold text-web3-neon mb-4 flex items-center">
+          <FaEthereum className="mr-2" />
+          Filters
+        </h2>
+        
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-web3-highlight mb-2">Categories</h3>
+          {['all', 'urgent', 'high', 'routine', 'archive'].map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${
+                category === cat 
+                  ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white' 
+                  : 'hover:bg-web3-accent hover:text-white'
+              }`}
+            >
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-web3-highlight mb-2">Audited Projects</h3>
+          {['none', ...auditedProjects].map(proj => (
+            <button
+              key={proj}
+              onClick={() => setProjectFilter(proj)}
+              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${
+                projectFilter === proj 
+                  ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white' 
+                  : 'hover:bg-web3-accent hover:text-white'
+              }`}
+            >
+              {proj}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main View: Messages */}
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-web3-neon flex items-center">
+            <FaEthereum className="mr-2" />
+            Messages
+          </h2>
+          <button
+            onClick={refreshMessages}
+            disabled={loading}
+            className="web3-button flex items-center"
+          >
+            {loading ? (
+              <div className="web3-loading mr-2"></div>
+            ) : (
+              <FaRefresh className="mr-2" />
+            )}
+            Refresh Messages
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {filteredMessages.map(msg => (
+            <div
+              key={msg.id}
+              className={`web3-card message-fade-in ${
+                auditedProjects.some(project => msg.text.includes(project)) 
+                  ? 'web3-highlighted' 
+                  : ''
+              }`}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center space-x-2">
+                  {getSourceIcon(msg.source)}
+                  <span className="font-semibold text-web3-highlight">{msg.sender}</span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(msg.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={msg.category}
+                    onChange={(e) => updateCategory(msg.id, e.target.value)}
+                    className="web3-select text-xs"
+                  >
+                    {['urgent', 'high', 'routine', 'archive'].map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <span className="text-sm text-gray-500">for Krum</span>
+              
+              <p className="text-gray-200 mb-2">{msg.text}</p>
+              
+              <div className="flex flex-wrap gap-1">
+                {auditedProjects.map(project => (
+                  msg.text.includes(project) && (
+                    <span key={project} className="web3-badge">
+                      {project}
+                    </span>
+                  )
+                ))}
+                <span className={getCategoryBadgeClass(msg.category)}>
+                  {msg.category}
+                </span>
+              </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <StatsPanel stats={stats} />
+          ))}
+          
+          {filteredMessages.length === 0 && (
+            <div className="text-center py-8 text-gray-400">
+              <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
+              <p>No messages found for the selected filters</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Sidebar: Templates */}
+      <div className="w-full md:w-1/5 bg-web3-darker p-4 border-t md:border-t-0 md:border-l border-web3-accent">
+        <h2 className="text-lg font-bold text-web3-neon mb-4 flex items-center">
+          <FaEthereum className="mr-2" />
+          Reply Templates
+        </h2>
+        
+        <div className="space-y-3">
+          {templates.map((template, i) => (
+            <div key={i} className="web3-card">
+              <p className="text-sm text-gray-200 mb-2">{template}</p>
               <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="btn-primary flex items-center space-x-2"
+                onClick={() => copyToClipboard(template)}
+                className="web3-button-secondary flex items-center text-xs"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <FaCopy className="mr-1" />
+                Copy
               </button>
             </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Sidebar - Filters */}
-          <div className="col-span-3">
-            <Sidebar 
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              stats={stats}
-            />
-          </div>
-
-          {/* Main Content - Message List */}
-          <div className="col-span-6">
-            <MessageList 
-              messages={messages}
-              onCategoryUpdate={handleCategoryUpdate}
-            />
-          </div>
-
-          {/* Right Sidebar - Templates */}
-          <div className="col-span-3">
-            <TemplatesPanel templates={templates} />
-          </div>
+          ))}
         </div>
       </div>
     </div>
