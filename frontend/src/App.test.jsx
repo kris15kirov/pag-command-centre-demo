@@ -12,7 +12,7 @@ jest.mock('react-icons/fa', () => ({
     FaTelegram: () => '📱',
     FaTwitter: () => '🐦',
     FaCopy: () => '📋',
-    FaRefresh: () => '🔄',
+    FaSync: () => '🔄',
 }));
 
 // Mock clipboard API

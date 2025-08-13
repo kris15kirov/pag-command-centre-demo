@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaRefresh } from 'react-icons/fa';
+import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync } from 'react-icons/fa';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -36,7 +36,7 @@ function App() {
       await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
         category: newCategory
       });
-      setMessages(messages.map(msg => 
+      setMessages(messages.map(msg =>
         msg.id === id ? { ...msg, category: newCategory } : msg
       ));
     } catch (error) {
@@ -63,21 +63,22 @@ function App() {
   const getCategoryBadgeClass = (cat) => {
     switch (cat) {
       case 'urgent': return 'web3-badge-urgent';
-      case 'high': return 'web3-badge-high';
+      case 'high':
+      case 'high_priority': return 'web3-badge-high';
       case 'routine': return 'web3-badge-routine';
       default: return 'web3-badge';
     }
   };
 
   const getSourceIcon = (source) => {
-    return source === 'Telegram' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
+    return source === 'telegram' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
   };
 
   const filteredMessages = messages.filter(msg => {
-    const categoryMatch = category === 'all' || msg.category === category;
-    const projectMatch = projectFilter === 'none' || 
-      ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project => 
-        msg.text.includes(project) && projectFilter === project
+    const categoryMatch = category === 'all' || msg.category === category || (category === 'high' && msg.category === 'high_priority');
+    const projectMatch = projectFilter === 'none' ||
+      ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project =>
+        msg.content && msg.content.includes(project) && projectFilter === project
       );
     return categoryMatch && projectMatch;
   });
@@ -92,18 +93,17 @@ function App() {
           <FaEthereum className="mr-2" />
           Filters
         </h2>
-        
+
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-web3-highlight mb-2">Categories</h3>
           {['all', 'urgent', 'high', 'routine', 'archive'].map(cat => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${
-                category === cat 
-                  ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white' 
-                  : 'hover:bg-web3-accent hover:text-white'
-              }`}
+              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${category === cat
+                ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white'
+                : 'hover:bg-web3-accent hover:text-white'
+                }`}
             >
               {cat.charAt(0).toUpperCase() + cat.slice(1)}
             </button>
@@ -116,11 +116,10 @@ function App() {
             <button
               key={proj}
               onClick={() => setProjectFilter(proj)}
-              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${
-                projectFilter === proj 
-                  ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white' 
-                  : 'hover:bg-web3-accent hover:text-white'
-              }`}
+              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${projectFilter === proj
+                ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white'
+                : 'hover:bg-web3-accent hover:text-white'
+                }`}
             >
               {proj}
             </button>
@@ -143,7 +142,7 @@ function App() {
             {loading ? (
               <div className="web3-loading mr-2"></div>
             ) : (
-              <FaRefresh className="mr-2" />
+              <FaSync className="mr-2" />
             )}
             Refresh Messages
           </button>
@@ -153,11 +152,10 @@ function App() {
           {filteredMessages.map(msg => (
             <div
               key={msg.id}
-              className={`web3-card message-fade-in ${
-                auditedProjects.some(project => msg.text.includes(project)) 
-                  ? 'web3-highlighted' 
-                  : ''
-              }`}
+              className={`web3-card message-fade-in ${auditedProjects.some(project => msg.content && msg.content.includes(project))
+                ? 'web3-highlighted'
+                : ''
+                }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center space-x-2">
@@ -179,12 +177,12 @@ function App() {
                   </select>
                 </div>
               </div>
-              
-              <p className="text-gray-200 mb-2">{msg.text}</p>
-              
+
+              <p className="text-gray-200 mb-2">{msg.content}</p>
+
               <div className="flex flex-wrap gap-1">
                 {auditedProjects.map(project => (
-                  msg.text.includes(project) && (
+                  msg.content && msg.content.includes(project) && (
                     <span key={project} className="web3-badge">
                       {project}
                     </span>
@@ -196,7 +194,7 @@ function App() {
               </div>
             </div>
           ))}
-          
+
           {filteredMessages.length === 0 && (
             <div className="text-center py-8 text-gray-400">
               <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
@@ -212,7 +210,7 @@ function App() {
           <FaEthereum className="mr-2" />
           Reply Templates
         </h2>
-        
+
         <div className="space-y-3">
           {templates.map((template, i) => (
             <div key={i} className="web3-card">
