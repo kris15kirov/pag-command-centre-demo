@@ -12,7 +12,8 @@ from schemas import MessageResponse, MessageUpdate, TemplateResponse
 from services.telegram_service import TelegramService
 from services.twitter_service import TwitterService
 from services.categorization_service import CategorizationService
-from config.config import ALLOWED_ORIGINS, AUDITED_PROJECTS
+from services.twitter_feed_service import fetch_audited_project_feeds, fetch_pashov_audit_group_feed, get_project_feed_summary
+from config.config import ALLOWED_ORIGINS, AUDITED_PROJECTS, PROJECT_FEEDS, PASHOV_AUDIT_GROUP
 
 # Load environment variables
 load_dotenv()
@@ -230,6 +231,106 @@ async def refresh_messages(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error refreshing messages: {str(e)}")
+
+@app.get("/api/project-feeds")
+async def get_project_feeds(db: Session = Depends(get_db)):
+    """Get project feeds from Twitter"""
+    try:
+        # Get project feeds from database
+        project_messages = db.query(Message).filter(Message.source == "TwitterFeed").order_by(Message.timestamp.desc()).all()
+        
+        feeds = {}
+        for msg in project_messages:
+            sender = msg.sender
+            if sender not in feeds:
+                feeds[sender] = []
+            feeds[sender].append({
+                "id": msg.id,
+                "content": msg.content,
+                "timestamp": msg.timestamp.isoformat(),
+                "category": msg.category.value
+            })
+        
+        return feeds
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching project feeds: {str(e)}")
+
+@app.post("/api/refresh-feeds")
+async def refresh_project_feeds(db: Session = Depends(get_db)):
+    """Fetch new project feeds from Twitter"""
+    try:
+        # Fetch project feeds
+        project_feeds = await fetch_audited_project_feeds()
+        pashov_feed = await fetch_pashov_audit_group_feed()
+        
+        total_added = 0
+        
+        # Store project feeds
+        for project, feed in project_feeds.items():
+            for tweet in feed:
+                # Check if tweet already exists
+                existing = db.query(Message).filter(Message.external_id == tweet["id"]).first()
+                if not existing:
+                    category = categorization_service.categorize_message(tweet["content"])
+                    message = Message(
+                        source="TwitterFeed",
+                        sender=tweet["sender"],
+                        content=tweet["content"],
+                        category=category,
+                        timestamp=tweet["timestamp"],
+                        external_id=tweet["id"]
+                    )
+                    db.add(message)
+                    total_added += 1
+        
+        # Store Pashov Audit Group feed
+        for tweet in pashov_feed:
+            existing = db.query(Message).filter(Message.external_id == tweet["id"]).first()
+            if not existing:
+                category = categorization_service.categorize_message(tweet["content"])
+                message = Message(
+                    source="TwitterFeed",
+                    sender=tweet["sender"],
+                    content=tweet["content"],
+                    category=category,
+                    timestamp=tweet["timestamp"],
+                    external_id=tweet["id"]
+                )
+                db.add(message)
+                total_added += 1
+        
+        db.commit()
+        return {
+            "message": "Project feeds refreshed successfully",
+            "total_added": total_added,
+            "projects_updated": list(project_feeds.keys()),
+            "pashov_feed_count": len(pashov_feed)
+        }
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error refreshing project feeds: {str(e)}")
+
+@app.get("/api/feed-analytics")
+async def get_feed_analytics(db: Session = Depends(get_db)):
+    """Get analytics for project feeds"""
+    try:
+        # Count tweets by sender
+        from sqlalchemy import func
+        feed_counts = db.query(Message.sender, func.count(Message.id)).filter(
+            Message.source == "TwitterFeed"
+        ).group_by(Message.sender).all()
+        
+        analytics = {
+            "total_feeds": sum(count for _, count in feed_counts),
+            "by_project": {sender: count for sender, count in feed_counts},
+            "projects": list(PROJECT_FEEDS.keys()),
+            "pashov_audit_group": PASHOV_AUDIT_GROUP
+        }
+        
+        return analytics
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching feed analytics: {str(e)}")
 
 @app.get("/api/stats")
 async def get_stats(db: Session = Depends(get_db)):

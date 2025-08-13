@@ -4,19 +4,22 @@ import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync } from 'react-icons/f
 
 function App() {
   const [messages, setMessages] = useState([]);
+  const [projectFeeds, setProjectFeeds] = useState({});
   const [category, setCategory] = useState('all');
   const [projectFilter, setProjectFilter] = useState('none');
   const [loading, setLoading] = useState(false);
 
   const templates = [
-    "Thanks for your audit request! Pashov Audit Group, trusted by Uniswap and Aave, will review your smart contract. We'll get back to you within 24 hours.",
-    "We've successfully audited similar protocols like LayerZero and Ethena. Your project shows great potential. Let's discuss the audit scope.",
-    "Your DeFi protocol looks promising! Based on our experience with Sushi and other DEX protocols, we can provide comprehensive security analysis.",
-    "Thank you for reaching out about your NFT project. Our team has extensive experience with NFT smart contracts and can ensure your collection is secure."
+    "Thanks for your audit request! Pashov Audit Group (trusted by Uniswap and Aave) will review your {project} and respond soon.",
+    "Can you share more details about your {project} smart contract? We've audited similar protocols like Sushi and Ethena.",
+    "Interested in LayerZero integration? Pashov Audit Group has audited their cross-chain contracts.",
+    "For NFT projects like Blueberry Protocol, audited by us, please provide your contract address.",
+    "We're excited to support Arbitrum builders—contact us for an audit!"
   ];
 
   useEffect(() => {
     fetchMessages();
+    fetchProjectFeeds();
   }, []);
 
   const fetchMessages = async () => {
@@ -44,11 +47,22 @@ function App() {
     }
   };
 
+  const fetchProjectFeeds = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/project-feeds');
+      setProjectFeeds(response.data);
+    } catch (error) {
+      console.error('Error fetching project feeds:', error);
+    }
+  };
+
   const refreshMessages = async () => {
     try {
       setLoading(true);
       await axios.post('http://localhost:8000/api/refresh');
+      await axios.post('http://localhost:8000/api/refresh-feeds');
       await fetchMessages();
+      await fetchProjectFeeds();
     } catch (error) {
       console.error('Error refreshing messages:', error);
     } finally {
@@ -83,7 +97,7 @@ function App() {
     return categoryMatch && projectMatch;
   });
 
-  const auditedProjects = ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'];
+  const auditedProjects = ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi', 'Arbitrum', 'Blueberry'];
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter">
@@ -199,6 +213,46 @@ function App() {
             <div className="text-center py-8 text-gray-400">
               <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
               <p>No messages found for the selected filters</p>
+            </div>
+          )}
+        </div>
+
+        {/* Project Feeds Section */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold text-web3-neon flex items-center mb-4">
+            <FaEthereum className="mr-2" />
+            Project Feeds
+          </h2>
+          
+          {Object.entries(projectFeeds).map(([sender, tweets]) => (
+            <div key={sender} className={`web3-card mb-4 ${sender === 'PashovAuditGrp' ? 'bg-gradient-to-r from-gray-800 to-web3-accent' : ''}`}>
+              <h3 className="text-web3-accent font-semibold mb-2">
+                {sender === 'PashovAuditGrp' ? 'Pashov Audit Group' : sender}
+              </h3>
+              {tweets.map((tweet, i) => (
+                <div key={i} className="mb-3 p-3 bg-gray-800 rounded-lg">
+                  <p className="text-sm text-gray-200 mb-2">{tweet.content}</p>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {auditedProjects.map(project => (
+                      tweet.content && tweet.content.includes(project) && (
+                        <span key={project} className="web3-badge-highlight">
+                          {project}
+                        </span>
+                      )
+                    ))}
+                  </div>
+                  <span className="text-xs text-web3-highlight">
+                    {new Date(tweet.timestamp).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+          
+          {Object.keys(projectFeeds).length === 0 && (
+            <div className="text-center py-8 text-gray-400">
+              <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
+              <p>No project feeds available</p>
             </div>
           )}
         </div>

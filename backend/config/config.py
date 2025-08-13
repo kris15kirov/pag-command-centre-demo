@@ -29,6 +29,25 @@ AUDITED_PROJECTS = {
     "others": ["Chainlink", "The Graph", "Filecoin"]
 }
 
+# Enhanced Project Feeds Configuration
+PROJECT_FEEDS = {
+    'none': None,
+    'Uniswap': {'twitter_id': 'Uniswap', 'handle': '@Uniswap'},
+    'Aave': {'twitter_id': 'Aave', 'handle': '@Aave'},
+    'LayerZero': {'twitter_id': 'LayerZero_Labs', 'handle': '@LayerZero_Labs'},
+    'Ethena': {'twitter_id': 'EthenaLabs', 'handle': '@EthenaLabs'},
+    'Sushi': {'twitter_id': 'SushiSwap', 'handle': '@SushiSwap'},
+    'Arbitrum': {'twitter_id': 'arbitrum', 'handle': '@arbitrum'},
+    'Blueberry': {'twitter_id': 'BlueberryFi', 'handle': '@BlueberryFi'}
+}
+
+PASHOV_AUDIT_GROUP = {
+    'twitter_id': 'PashovAuditGrp',
+    'handle': '@PashovAuditGrp',
+    'bio': 'Solidity, Rust, Cairo, Go, Vyper, web2 audits company. Trusted by Aave, Uniswap, Lido, LayerZero, Ethena, Euler, Pumpfun. Book an audit: http://t.me/pashovkrum',
+    'website': 'pashov.net'
+}
+
 # Web3-specific keywords for categorization
 WEB3_URGENT_KEYWORDS = [
     'urgent', 'emergency', 'critical', 'broken', 'down', 'error',

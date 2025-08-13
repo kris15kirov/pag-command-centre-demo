@@ -82,6 +82,11 @@ body {
   @apply bg-web3-highlight text-white text-xs px-2 py-1 rounded-full font-semibold;
 }
 
+.web3-badge-highlight {
+  @apply bg-gradient-to-r from-web3-neon to-web3-highlight text-white text-xs px-2 py-1 rounded-full 
+         font-semibold animate-pulse-web3;
+}
+
 /* Web3 input styles */
 .web3-input {
   @apply bg-web3-gray border border-web3-accent text-white px-3 py-2 rounded-md

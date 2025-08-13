@@ -126,7 +126,7 @@ class TestWeb3SpecificFeatures:
     
     def test_audited_projects_config(self):
         """Test that audited projects are properly configured"""
-        from config.config import AUDITED_PROJECTS
+        from config.config import AUDITED_PROJECTS, PROJECT_FEEDS, PASHOV_AUDIT_GROUP
         
         # Check that audited projects are defined
         assert isinstance(AUDITED_PROJECTS, dict)
@@ -141,6 +141,43 @@ class TestWeb3SpecificFeatures:
                     found = True
                     break
             assert found, f"Project {project} not found in audited projects config"
+        
+        # Check that project feeds are configured
+        assert isinstance(PROJECT_FEEDS, dict)
+        assert 'Uniswap' in PROJECT_FEEDS
+        assert 'Aave' in PROJECT_FEEDS
+        assert 'LayerZero' in PROJECT_FEEDS
+        
+        # Check Pashov Audit Group configuration
+        assert PASHOV_AUDIT_GROUP['twitter_id'] == 'PashovAuditGrp'
+        assert 'pashov.net' in PASHOV_AUDIT_GROUP['website']
+
+class TestProjectFeeds:
+    """Test cases for project feeds functionality"""
+    
+    def test_get_project_feeds(self):
+        """Test the project feeds endpoint"""
+        response = client.get("/api/project-feeds")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+    
+    def test_refresh_project_feeds(self):
+        """Test the refresh project feeds endpoint"""
+        response = client.post("/api/refresh-feeds")
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert "Project feeds refreshed successfully" in data["message"]
+    
+    def test_feed_analytics(self):
+        """Test the feed analytics endpoint"""
+        response = client.get("/api/feed-analytics")
+        assert response.status_code == 200
+        data = response.json()
+        assert "total_feeds" in data
+        assert "by_project" in data
+        assert "projects" in data
 
 if __name__ == "__main__":
     pytest.main([__file__])
