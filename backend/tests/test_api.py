@@ -58,8 +58,8 @@ class TestBasicEndpoints:
 class TestRefreshEndpoint:
     """Test cases for /api/refresh endpoint"""
     
-    @patch('services.telegram_service.TelegramService.fetch_messages')
-    @patch('services.twitter_service.TwitterService.fetch_mentions')
+    @patch('main.telegram_service.fetch_messages')
+    @patch('main.twitter_service.fetch_mentions')
     def test_refresh_messages_success(self, mock_twitter, mock_telegram):
         """Test successful refresh of messages from external APIs"""
         # Mock external service responses
@@ -68,7 +68,7 @@ class TestRefreshEndpoint:
                 "id": "refresh_test_1",
                 "sender": "@NewClient",
                 "content": "Need Ethena audit for new protocol",
-                "timestamp": "2025-08-12T10:20:00Z"
+                "timestamp": datetime.fromisoformat("2025-08-12T10:20:00")
             }
         ]
         
@@ -77,7 +77,7 @@ class TestRefreshEndpoint:
                 "id": "refresh_test_2",
                 "sender": "@DeFiAnalyst", 
                 "content": "@KrumPashov Sushi protocol audit request",
-                "timestamp": "2025-08-12T10:25:00Z"
+                "timestamp": datetime.fromisoformat("2025-08-12T10:25:00")
             }
         ]
         

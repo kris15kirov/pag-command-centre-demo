@@ -111,7 +111,7 @@ else
 fi
 
 echo "Testing /api/refresh endpoint..."
-if curl -s http://localhost:8000/api/refresh | grep -q "message"; then
+if curl -s -X POST http://localhost:8000/api/refresh | grep -q "message"; then
     print_success "Refresh endpoint working"
 else
     print_warning "Refresh endpoint may have issues"
