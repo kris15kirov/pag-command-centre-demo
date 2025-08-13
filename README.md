@@ -1,6 +1,6 @@
 # Comms Command Center
 
-A lightweight dashboard for managing Telegram and Twitter messages for busy Web3 founders.
+A lightweight dashboard for managing Telegram and Twitter messages.
 
 ## Features
 
