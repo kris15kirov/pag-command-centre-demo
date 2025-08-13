@@ -22,7 +22,7 @@ function App() {
   const fetchMessages = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/messages');
+      const response = await axios.get('http://localhost:8000/api/messages');
       setMessages(response.data);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -33,7 +33,7 @@ function App() {
 
   const updateCategory = async (id, newCategory) => {
     try {
-      await axios.post(`http://localhost:8000/messages/${id}/category`, {
+      await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
         category: newCategory
       });
       setMessages(messages.map(msg => 
@@ -47,7 +47,7 @@ function App() {
   const refreshMessages = async () => {
     try {
       setLoading(true);
-      await axios.get('http://localhost:8000/refresh');
+      await axios.post('http://localhost:8000/api/refresh');
       await fetchMessages();
     } catch (error) {
       console.error('Error refreshing messages:', error);

@@ -267,11 +267,11 @@ describe('PAG Command Centre Dashboard', () => {
             // Change category from urgent to high
             fireEvent.change(firstSelect, { target: { value: 'high' } });
 
-            // Verify API call was made
-            expect(axios.post).toHaveBeenCalledWith(
-                'http://localhost:8000/messages/1/category',
-                { category: 'high' }
-            );
+                   // Verify API call was made
+       expect(axios.post).toHaveBeenCalledWith(
+         'http://localhost:8000/api/messages/1/category',
+         { category: 'high' }
+       );
         });
     });
 
@@ -336,8 +336,8 @@ describe('PAG Command Centre Dashboard', () => {
             const refreshButton = screen.getByText('Refresh Messages');
             fireEvent.click(refreshButton);
 
-            // Verify refresh API call was made
-            expect(axios.get).toHaveBeenCalledWith('http://localhost:8000/refresh');
+                   // Verify refresh API call was made
+       expect(axios.post).toHaveBeenCalledWith('http://localhost:8000/api/refresh');
         });
     });
 

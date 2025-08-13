@@ -91,7 +91,7 @@ cd ..
 sleep 3
 
 # Check if backend is running
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+if curl -s http://localhost:8000/ > /dev/null 2>&1; then
     print_success "Backend server is running"
 else
     print_warning "Backend health check failed, but continuing..."
@@ -103,15 +103,15 @@ cd backend
 source venv/bin/activate
 
 # Test API endpoints
-echo "Testing /messages endpoint..."
-if curl -s http://localhost:8000/messages | grep -q "id"; then
+echo "Testing /api/messages endpoint..."
+if curl -s http://localhost:8000/api/messages | grep -q "id"; then
     print_success "Messages endpoint working"
 else
     print_warning "Messages endpoint returned no data"
 fi
 
-echo "Testing /refresh endpoint..."
-if curl -s http://localhost:8000/refresh | grep -q "success"; then
+echo "Testing /api/refresh endpoint..."
+if curl -s http://localhost:8000/api/refresh | grep -q "message"; then
     print_success "Refresh endpoint working"
 else
     print_warning "Refresh endpoint may have issues"
