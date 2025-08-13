@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync } from 'react-icons/fa';
+import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync, FaFilter, FaRocket, FaShieldAlt, FaExclamationTriangle, FaChevronDown, FaExclamationCircle, FaClock, FaArchive } from 'react-icons/fa';
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [projectFeeds, setProjectFeeds] = useState({});
   const [category, setCategory] = useState('all');
   const [projectFilter, setProjectFilter] = useState('none');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   const templates = [
     "Thanks for your audit request! Pashov Audit Group (trusted by Uniswap and Aave) will review your {project} and respond soon.",
@@ -18,60 +21,110 @@ function App() {
   ];
 
   useEffect(() => {
+    console.log("App component mounted - fetching initial data");
     fetchMessages();
     fetchProjectFeeds();
   }, []);
 
   const fetchMessages = async () => {
     try {
-      setLoading(true);
+      console.log("Fetching messages from API...");
+      setError(null);
       const response = await axios.get('http://localhost:8000/api/messages');
+      console.log("Messages fetched successfully:", response.data.length, "messages");
+      console.log("Sample messages:", response.data.slice(0, 3));
+      console.log("Message categories found:", [...new Set(response.data.map(msg => msg.category))]);
+      console.log("Message sources found:", [...new Set(response.data.map(msg => msg.source))]);
       setMessages(response.data);
     } catch (error) {
       console.error('Error fetching messages:', error);
-    } finally {
-      setLoading(false);
+      setError(`Failed to fetch messages: ${error.message}`);
+      // Add fallback data as suggested by Grok
+      setMessages([
+        {
+          id: 1,
+          sender: "@TestUser",
+          content: "Fallback message - API connection issue detected",
+          source: "telegram",
+          category: "routine",
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    }
+  };
+
+  const fetchProjectFeeds = async () => {
+    try {
+      console.log("Fetching project feeds from API...");
+      const response = await axios.get('http://localhost:8000/api/project-feeds');
+      console.log("Project feeds fetched successfully:", response.data);
+      setProjectFeeds(response.data);
+    } catch (error) {
+      console.error('Error fetching project feeds:', error);
+      // Add fallback data as suggested by Grok
+      setProjectFeeds({
+        "PashovAuditGrp": [
+          {
+            content: "Fallback: Pashov Audit Group completed security review for major DeFi protocol",
+            timestamp: new Date().toISOString()
+          }
+        ]
+      });
     }
   };
 
   const updateCategory = async (id, newCategory) => {
     try {
+      console.log(`Updating message ${id} category to ${newCategory}`);
       await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
         category: newCategory
       });
       setMessages(messages.map(msg =>
         msg.id === id ? { ...msg, category: newCategory } : msg
       ));
+      console.log("Category updated successfully");
     } catch (error) {
       console.error('Error updating category:', error);
-    }
-  };
-
-  const fetchProjectFeeds = async () => {
-    try {
-      const response = await axios.get('http://localhost:8000/api/project-feeds');
-      setProjectFeeds(response.data);
-    } catch (error) {
-      console.error('Error fetching project feeds:', error);
+      setError(`Failed to update category: ${error.message}`);
     }
   };
 
   const refreshMessages = async () => {
     try {
+      console.log("Starting refresh process...");
       setLoading(true);
+      setError(null);
+
+      // Refresh messages
+      console.log("Refreshing messages...");
       await axios.post('http://localhost:8000/api/refresh');
+
+      // Refresh project feeds
+      console.log("Refreshing project feeds...");
       await axios.post('http://localhost:8000/api/refresh-feeds');
+
+      // Fetch updated data
       await fetchMessages();
       await fetchProjectFeeds();
+
+      setLastRefresh(new Date());
+      console.log("Refresh completed successfully");
     } catch (error) {
       console.error('Error refreshing messages:', error);
+      setError(`Refresh failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+    try {
+      navigator.clipboard.writeText(text);
+      console.log("Template copied to clipboard");
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      setError("Failed to copy template to clipboard");
+    }
   };
 
   const getCategoryBadgeClass = (cat) => {
@@ -85,154 +138,478 @@ function App() {
   };
 
   const getSourceIcon = (source) => {
-    return source === 'telegram' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
+    return source === 'TELEGRAM' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
+  };
+
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case 'urgent': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+      case 'high_priority': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+      case 'routine': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+      case 'archive': return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
+      default: return 'bg-gray-700 text-gray-300';
+    }
   };
 
   const filteredMessages = messages.filter(msg => {
-    const categoryMatch = category === 'all' || msg.category === category || (category === 'high' && msg.category === 'high_priority');
+    const categoryMatch = category === 'all' ||
+      (category === 'urgent' && msg.category === 'urgent') ||
+      (category === 'high' && msg.category === 'high_priority') ||
+      (category === 'routine' && msg.category === 'routine') ||
+      (category === 'archive' && msg.category === 'archive');
     const projectMatch = projectFilter === 'none' ||
       ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project =>
         msg.content && msg.content.includes(project) && projectFilter === project
       );
-    return categoryMatch && projectMatch;
+    const sourceMatch = sourceFilter === 'all' ||
+      (sourceFilter === 'TELEGRAM' && msg.source === 'TELEGRAM') ||
+      (sourceFilter === 'TWITTER' && (msg.source === 'TWITTER' || msg.source === 'TWITTER_FEED'));
+
+    // Debug logging for filtering
+    if (category !== 'all') {
+      console.log(`Filtering message ${msg.id}:`, {
+        sender: msg.sender,
+        category: msg.category,
+        source: msg.source,
+        categoryMatch,
+        projectMatch,
+        sourceMatch,
+        currentFilters: { category, projectFilter, sourceFilter }
+      });
+    }
+
+    return categoryMatch && projectMatch && sourceMatch;
   });
 
+  // Debug logging for state changes
+  console.log('Current state:', {
+    totalMessages: messages.length,
+    filteredMessages: filteredMessages.length,
+    category,
+    projectFilter,
+    sourceFilter,
+  });
+
+  // Test filtering logic with sample data
+  const testFiltering = () => {
+    const testMessages = [
+      { id: 1, sender: 'Test1', category: 'urgent', source: 'TELEGRAM', content: 'Test urgent' },
+      { id: 2, sender: 'Test2', category: 'high_priority', source: 'TWITTER', content: 'Test high' },
+      { id: 3, sender: 'Test3', category: 'routine', source: 'TELEGRAM', content: 'Test routine' }
+    ];
+
+    const testFiltered = testMessages.filter(msg => {
+      const categoryMatch = category === 'all' ||
+        (category === 'urgent' && msg.category === 'urgent') ||
+        (category === 'high' && msg.category === 'high_priority') ||
+        (category === 'routine' && msg.category === 'routine');
+      return categoryMatch;
+    });
+
+    console.log('Test filtering:', {
+      category,
+      testMessages: testMessages.length,
+      testFiltered: testFiltered.length,
+      testResults: testFiltered
+    });
+  };
+
+  // Run test when category changes
+  React.useEffect(() => {
+    testFiltering();
+  }, [category]);
+
   const auditedProjects = ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi', 'Arbitrum', 'Blueberry'];
+
+  // Error display component
+  const ErrorDisplay = ({ error }) => (
+    <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-4">
+      <div className="flex items-center">
+        <FaExclamationTriangle className="text-red-400 mr-2" />
+        <span className="text-red-300 font-medium">Error: {error}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter">
       {/* Left Sidebar: Filters */}
-      <div className="w-full md:w-1/5 bg-web3-darker p-4 border-b md:border-b-0 md:border-r border-web3-accent">
-        <h2 className="text-lg font-bold text-web3-neon mb-4 flex items-center">
-          <FaEthereum className="mr-2" />
-          Filters
-        </h2>
-
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-web3-highlight mb-2">Categories</h3>
-          {['all', 'urgent', 'high', 'routine', 'archive'].map(cat => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${category === cat
-                ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white'
-                : 'hover:bg-web3-accent hover:text-white'
-                }`}
-            >
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </button>
-          ))}
+      <div className="w-full md:w-1/5 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-b md:border-b-0 md:border-r border-web3-accent/30">
+        <div className="flex items-center mb-6">
+          <FaEthereum className="text-2xl text-web3-neon mr-3" />
+          <h2 className="web3-title text-xl">Command Center</h2>
         </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-web3-highlight mb-2">Audited Projects</h3>
-          {['none', ...auditedProjects].map(proj => (
+        <div className="sidebar-section">
+          <div className="flex items-center mb-4">
+            <FaFilter className="text-web3-highlight mr-2" />
+            <h3 className="web3-subtitle text-base">Categories</h3>
+          </div>
+          <div className="space-y-2">
             <button
-              key={proj}
-              onClick={() => setProjectFilter(proj)}
-              className={`block w-full text-left p-2 mb-1 rounded-md transition-all duration-200 ${projectFilter === proj
-                ? 'bg-gradient-to-r from-web3-accent to-web3-highlight text-white'
-                : 'hover:bg-web3-accent hover:text-white'
+              onClick={() => {
+                console.log('Category button clicked: all');
+                setCategory('all');
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${category === 'all'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
                 }`}
             >
-              {proj}
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">📊</span>
+                <span>All</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${category === 'all'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.length}
+              </span>
             </button>
-          ))}
+
+            <button
+              onClick={() => {
+                console.log('Category button clicked: urgent');
+                setCategory('urgent');
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${category === 'urgent'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">🚨</span>
+                <span>Urgent</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${category === 'urgent'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.category === 'urgent').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('Category button clicked: high');
+                setCategory('high');
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${category === 'high'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">⚠️</span>
+                <span>High Priority</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${category === 'high'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.category === 'high_priority').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('Category button clicked: routine');
+                setCategory('routine');
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${category === 'routine'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">📋</span>
+                <span>Routine</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${category === 'routine'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.category === 'routine').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('Category button clicked: archive');
+                setCategory('archive');
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${category === 'archive'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">📁</span>
+                <span>Archive</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${category === 'archive'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.category === 'archive').length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="flex items-center mb-4">
+            <FaShieldAlt className="text-web3-highlight mr-2" />
+            <h3 className="web3-subtitle text-base">Audited Projects</h3>
+          </div>
+          <div className="space-y-2">
+            {['none', ...auditedProjects].map(proj => (
+              <button
+                key={proj}
+                onClick={() => setProjectFilter(proj)}
+                className={`w-full text-left p-2 rounded-lg transition-all duration-200 ${projectFilter === proj
+                  ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white'
+                  : 'text-gray-300 hover:bg-web3-darker/50 hover:text-white'
+                  }`}
+              >
+                {proj}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="flex items-center mb-4">
+            <FaTelegram className="text-web3-highlight mr-2" />
+            <h3 className="web3-subtitle text-base">Message Sources</h3>
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                console.log('Source button clicked: all');
+                setSourceFilter('all');
+              }}
+              className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${sourceFilter === 'all'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white shadow-lg'
+                : 'bg-web3-darker/50 border border-web3-accent/20 text-gray-300 hover:bg-web3-darker/70 hover:border-web3-accent/40'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">📊</span>
+                <span className="font-medium">All Messages</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${sourceFilter === 'all'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('Source button clicked: TELEGRAM');
+                setSourceFilter('TELEGRAM');
+              }}
+              className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${sourceFilter === 'TELEGRAM'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white shadow-lg'
+                : 'bg-web3-darker/50 border border-web3-accent/20 text-gray-300 hover:bg-web3-darker/70 hover:border-web3-accent/40'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">📱</span>
+                <span className="font-medium">Telegram</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${sourceFilter === 'TELEGRAM'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.source === 'TELEGRAM').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('Source button clicked: TWITTER');
+                setSourceFilter('TWITTER');
+              }}
+              className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${sourceFilter === 'TWITTER'
+                ? 'bg-gradient-to-r from-web3-accent/20 to-web3-highlight/20 border border-web3-accent/50 text-white shadow-lg'
+                : 'bg-web3-darker/50 border border-web3-accent/20 text-gray-300 hover:bg-web3-darker/70 hover:border-web3-accent/40'
+                }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2 text-lg">🐦</span>
+                <span className="font-medium">Twitter</span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold ${sourceFilter === 'TWITTER'
+                ? 'bg-web3-accent text-white'
+                : 'bg-gray-700 text-gray-300'
+                }`}>
+                {messages.filter(msg => msg.source === 'TWITTER' || msg.source === 'TWITTER_FEED').length}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main View: Messages */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-web3-neon flex items-center">
-            <FaEthereum className="mr-2" />
-            Messages
-          </h2>
-          <button
-            onClick={refreshMessages}
-            disabled={loading}
-            className="web3-button flex items-center"
-          >
-            {loading ? (
-              <div className="web3-loading mr-2"></div>
-            ) : (
-              <FaSync className="mr-2" />
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center">
+            <FaRocket className="text-2xl text-web3-neon mr-3" />
+            <h2 className="web3-title text-2xl">Messages</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            {lastRefresh && (
+              <span className="text-sm text-gray-400">
+                Last refresh: {lastRefresh.toLocaleTimeString()}
+              </span>
             )}
-            Refresh Messages
-          </button>
+            <button
+              onClick={refreshMessages}
+              disabled={loading}
+              className="web3-button flex items-center"
+            >
+              {loading ? (
+                <div className="web3-loading mr-2"></div>
+              ) : (
+                <FaSync className="mr-2" />
+              )}
+              Refresh Messages
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredMessages.map(msg => (
-            <div
-              key={msg.id}
-              className={`web3-card message-fade-in ${auditedProjects.some(project => msg.content && msg.content.includes(project))
-                ? 'web3-highlighted'
-                : ''
-                }`}
-            >
-              <div className="flex justify-between items-start mb-2">
+        {/* Error Display */}
+        {error && <ErrorDisplay error={error} />}
+
+        {/* Filter Status */}
+        <div className="bg-gradient-to-r from-web3-darker/80 to-gray-900/80 border border-web3-accent/30 rounded-xl p-4 mb-6 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-300 text-sm">Showing:</span>
+                <span className="text-web3-highlight font-bold text-lg">{filteredMessages.length}</span>
+                <span className="text-gray-400 text-sm">of {messages.length} messages</span>
+              </div>
+              {sourceFilter !== 'all' && (
                 <div className="flex items-center space-x-2">
-                  {getSourceIcon(msg.source)}
-                  <span className="font-semibold text-web3-highlight">{msg.sender}</span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(msg.timestamp).toLocaleString()}
+                  <span className="text-gray-300 text-sm">Source:</span>
+                  <span className="text-web3-accent font-semibold px-2 py-1 bg-web3-accent/20 rounded-md text-sm">
+                    {sourceFilter === 'TELEGRAM' ? '📱 Telegram' : '🐦 Twitter'}
                   </span>
                 </div>
+              )}
+              {category !== 'all' && (
                 <div className="flex items-center space-x-2">
-                  <select
-                    value={msg.category}
-                    onChange={(e) => updateCategory(msg.id, e.target.value)}
-                    className="web3-select text-xs"
-                  >
-                    {['urgent', 'high', 'routine', 'archive'].map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                  <span className="text-gray-300 text-sm">Category:</span>
+                  <span className="text-web3-accent font-semibold px-2 py-1 bg-web3-accent/20 rounded-md text-sm">
+                    {category === 'high' ? 'High Priority' : category.charAt(0).toUpperCase() + category.slice(1)}
+                  </span>
+                </div>
+              )}
+              {(category !== 'all' || sourceFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    console.log('Clearing all filters');
+                    setCategory('all');
+                    setSourceFilter('all');
+                    setProjectFilter('none');
+                  }}
+                  className="text-gray-400 hover:text-white text-sm underline"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="flex items-center space-x-1">
+                  <span className="text-2xl">📱</span>
+                  <span className="text-web3-highlight font-bold">{messages.filter(msg => msg.source === 'TELEGRAM').length}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <span className="text-2xl">🐦</span>
+                  <span className="text-web3-highlight font-bold">{messages.filter(msg => msg.source === 'TWITTER' || msg.source === 'TWITTER_FEED').length}</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
 
-              <p className="text-gray-200 mb-2">{msg.content}</p>
-
-              <div className="flex flex-wrap gap-1">
-                {auditedProjects.map(project => (
-                  msg.content && msg.content.includes(project) && (
-                    <span key={project} className="web3-badge">
-                      {project}
+        <div className="space-y-6">
+          {filteredMessages.map((message, index) => (
+            <div key={message.id} className="web3-card hover:shadow-lg hover:shadow-web3-accent/20 transition-all duration-300 transform hover:scale-[1.02]">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="text-lg">{getSourceIcon(message.source)}</span>
+                    <span className="font-semibold text-white">{message.sender}</span>
+                    <span className="text-gray-400 text-sm">{new Date(message.timestamp).toLocaleString()}</span>
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">{message.content}</p>
+                </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  {message.category && (
+                    <span className={`web3-badge ${getCategoryColor(message.category)}`}>
+                      {message.category}
                     </span>
-                  )
-                ))}
-                <span className={getCategoryBadgeClass(msg.category)}>
-                  {msg.category}
-                </span>
+                  )}
+                  <button className="text-gray-400 hover:text-white transition-colors">
+                    <FaChevronDown />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
 
-          {filteredMessages.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
-              <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
-              <p>No messages found for the selected filters</p>
+          {filteredMessages.length === 0 && !loading && (
+            <div className="text-center py-12 text-gray-400">
+              <FaEthereum className="text-6xl mx-auto mb-6 text-web3-accent animate-pulse" />
+              <p className="text-xl">No messages found for the selected filters</p>
+              <p className="text-sm mt-2">Current filters: Category={category}, Source={sourceFilter}, Project={projectFilter}</p>
+              <p className="text-sm mt-2">Total messages: {messages.length}</p>
+              <button
+                onClick={() => {
+                  console.log('Clearing filters from empty state');
+                  setCategory('all');
+                  setSourceFilter('all');
+                  setProjectFilter('none');
+                }}
+                className="mt-4 web3-button-secondary"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          )}
+
+          {loading && (
+            <div className="text-center py-12 text-gray-400">
+              <div className="web3-loading mx-auto mb-6"></div>
+              <p className="text-xl">Loading messages...</p>
             </div>
           )}
         </div>
 
         {/* Project Feeds Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-bold text-web3-neon flex items-center mb-4">
-            <FaEthereum className="mr-2" />
-            Project Feeds
-          </h2>
-          
+        <div className="mt-12">
+          <div className="flex items-center mb-6">
+            <FaTwitter className="text-2xl text-web3-accent mr-3" />
+            <h2 className="web3-title text-2xl">Project Feeds</h2>
+          </div>
+
           {Object.entries(projectFeeds).map(([sender, tweets]) => (
-            <div key={sender} className={`web3-card mb-4 ${sender === 'PashovAuditGrp' ? 'bg-gradient-to-r from-gray-800 to-web3-accent' : ''}`}>
-              <h3 className="text-web3-accent font-semibold mb-2">
+            <div key={sender} className={`web3-card mb-6 ${sender === 'PashovAuditGrp' ? 'bg-gradient-to-r from-gray-800 to-web3-accent/20' : ''}`}>
+              <h3 className="text-web3-accent font-bold text-lg mb-4 flex items-center">
                 {sender === 'PashovAuditGrp' ? 'Pashov Audit Group' : sender}
+                {sender === 'PashovAuditGrp' && <FaShieldAlt className="ml-2 text-web3-neon" />}
               </h3>
               {tweets.map((tweet, i) => (
-                <div key={i} className="mb-3 p-3 bg-gray-800 rounded-lg">
-                  <p className="text-sm text-gray-200 mb-2">{tweet.content}</p>
-                  <div className="flex flex-wrap gap-1 mb-2">
+                <div key={i} className="project-feed-card">
+                  <p className="message-content text-base mb-3">{tweet.content}</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {auditedProjects.map(project => (
                       tweet.content && tweet.content.includes(project) && (
                         <span key={project} className="web3-badge-highlight">
@@ -241,40 +618,41 @@ function App() {
                       )
                     ))}
                   </div>
-                  <span className="text-xs text-web3-highlight">
+                  <span className="text-xs text-web3-highlight font-medium">
                     {new Date(tweet.timestamp).toLocaleString()}
                   </span>
                 </div>
               ))}
             </div>
           ))}
-          
-          {Object.keys(projectFeeds).length === 0 && (
-            <div className="text-center py-8 text-gray-400">
-              <FaEthereum className="text-4xl mx-auto mb-4 text-web3-accent" />
-              <p>No project feeds available</p>
+
+          {Object.keys(projectFeeds).length === 0 && !loading && (
+            <div className="text-center py-12 text-gray-400">
+              <FaTwitter className="text-6xl mx-auto mb-6 text-web3-accent animate-pulse" />
+              <p className="text-xl">No project feeds available</p>
+              <p className="text-sm mt-2">Refresh to load the latest updates</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Right Sidebar: Templates */}
-      <div className="w-full md:w-1/5 bg-web3-darker p-4 border-t md:border-t-0 md:border-l border-web3-accent">
-        <h2 className="text-lg font-bold text-web3-neon mb-4 flex items-center">
-          <FaEthereum className="mr-2" />
-          Reply Templates
-        </h2>
+      <div className="w-full md:w-1/5 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-t md:border-t-0 md:border-l border-web3-accent/30">
+        <div className="flex items-center mb-6">
+          <FaCopy className="text-2xl text-web3-neon mr-3" />
+          <h2 className="web3-title text-xl">Reply Templates</h2>
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {templates.map((template, i) => (
-            <div key={i} className="web3-card">
-              <p className="text-sm text-gray-200 mb-2">{template}</p>
+            <div key={i} className="template-card">
+              <p className="message-content text-sm mb-3">{template}</p>
               <button
                 onClick={() => copyToClipboard(template)}
-                className="web3-button-secondary flex items-center text-xs"
+                className="web3-button-secondary flex items-center text-xs w-full justify-center"
               >
-                <FaCopy className="mr-1" />
-                Copy
+                <FaCopy className="mr-2" />
+                Copy Template
               </button>
             </div>
           ))}

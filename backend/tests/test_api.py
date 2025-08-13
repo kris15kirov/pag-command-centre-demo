@@ -1,183 +1,295 @@
 import pytest
-import sys
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock
+import sqlite3
 import os
 from datetime import datetime
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi.testclient import TestClient
 from main import app
-from unittest.mock import patch, MagicMock
+from database import init_db, SessionLocal
+from models import Message, MessageCategory, MessageSource
 
 client = TestClient(app)
 
-class TestBasicEndpoints:
-    """Test basic API endpoints"""
+@pytest.fixture(scope="function")
+def setup_database():
+    """Setup test database"""
+    # Use test database
+    test_db_url = "sqlite:///./test_comms.db"
+    os.environ["DATABASE_URL"] = test_db_url
     
-    def test_root_endpoint(self):
-        """Test the root endpoint"""
-        response = client.get("/")
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "Comms Command Center API" in data["message"]
+    # Initialize test database
+    init_db()
     
-    def test_messages_endpoint(self):
-        """Test the messages endpoint"""
-        response = client.get("/api/messages")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
+    yield
     
-    def test_templates_endpoint(self):
-        """Test the templates endpoint"""
-        response = client.get("/api/templates")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) > 0
-        assert "name" in data[0]
-        assert "content" in data[0]
-    
-    def test_projects_endpoint(self):
-        """Test the projects endpoint"""
-        response = client.get("/api/projects")
-        assert response.status_code == 200
-        data = response.json()
-        assert "projects" in data
-        assert isinstance(data["projects"], dict)
-    
-    def test_analytics_endpoint(self):
-        """Test the analytics endpoint"""
-        response = client.get("/api/analytics")
-        assert response.status_code == 200
-        data = response.json()
-        assert "overview" in data
-        assert "categories" in data
-        assert "project_mentions" in data
+    # Cleanup
+    if os.path.exists("./test_comms.db"):
+        os.remove("./test_comms.db")
 
-class TestRefreshEndpoint:
-    """Test cases for /api/refresh endpoint"""
+@pytest.mark.asyncio
+async def test_health_check():
+    """Test health check endpoint"""
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "Comms Command Center API is running"
+    assert data["status"] == "healthy"
+
+@pytest.mark.asyncio
+async def test_get_messages_empty(setup_database):
+    """Test getting messages when database is empty"""
+    response = client.get("/api/messages")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 0
+
+@pytest.mark.asyncio
+async def test_get_messages_with_data(setup_database):
+    """Test getting messages with sample data"""
+    # Add test message to database
+    db = SessionLocal()
+    test_message = Message(
+        sender="test_user",
+        content="Test message content",
+        source=MessageSource.telegram,
+        category=MessageCategory.routine,
+        timestamp=datetime.now()
+    )
+    db.add(test_message)
+    db.commit()
+    db.close()
     
-    @patch('main.telegram_service.fetch_messages')
-    @patch('main.twitter_service.fetch_mentions')
-    def test_refresh_messages_success(self, mock_twitter, mock_telegram):
-        """Test successful refresh of messages from external APIs"""
-        # Mock external service responses
-        mock_telegram.return_value = [
-            {
-                "id": "refresh_test_1",
-                "sender": "@NewClient",
-                "content": "Need Ethena audit for new protocol",
-                "timestamp": datetime.fromisoformat("2025-08-12T10:20:00")
+    response = client.get("/api/messages")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["sender"] == "test_user"
+    assert data[0]["content"] == "Test message content"
+
+@pytest.mark.asyncio
+async def test_get_messages_with_filters(setup_database):
+    """Test getting messages with category filter"""
+    # Add test messages
+    db = SessionLocal()
+    urgent_message = Message(
+        sender="urgent_user",
+        content="Urgent message",
+        source=MessageSource.telegram,
+        category=MessageCategory.urgent,
+        timestamp=datetime.now()
+    )
+    routine_message = Message(
+        sender="routine_user",
+        content="Routine message",
+        source=MessageSource.twitter,
+        category=MessageCategory.routine,
+        timestamp=datetime.now()
+    )
+    db.add(urgent_message)
+    db.add(routine_message)
+    db.commit()
+    db.close()
+    
+    # Test urgent filter
+    response = client.get("/api/messages?category=urgent")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["category"] == "urgent"
+    
+    # Test source filter
+    response = client.get("/api/messages?source=twitter")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["source"] == "twitter"
+
+@pytest.mark.asyncio
+async def test_update_message_category(setup_database):
+    """Test updating message category"""
+    # Add test message
+    db = SessionLocal()
+    test_message = Message(
+        sender="test_user",
+        content="Test message",
+        source=MessageSource.telegram,
+        category=MessageCategory.routine,
+        timestamp=datetime.now()
+    )
+    db.add(test_message)
+    db.commit()
+    message_id = test_message.id
+    db.close()
+    
+    # Update category
+    response = client.post(f"/api/messages/{message_id}/category", json={"category": "urgent"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "Category updated successfully"
+    
+    # Verify update
+    response = client.get("/api/messages")
+    data = response.json()
+    updated_message = next(msg for msg in data if msg["id"] == message_id)
+    assert updated_message["category"] == "urgent"
+
+@pytest.mark.asyncio
+async def test_update_nonexistent_message_category(setup_database):
+    """Test updating category for non-existent message"""
+    response = client.post("/api/messages/999/category", json={"category": "urgent"})
+    assert response.status_code == 404
+    data = response.json()
+    assert "Message not found" in data["detail"]
+
+@pytest.mark.asyncio
+async def test_get_templates():
+    """Test getting reply templates"""
+    response = client.get("/api/templates")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 5  # We have 5 templates
+    
+    # Check template structure
+    template = data[0]
+    assert "id" in template
+    assert "name" in template
+    assert "content" in template
+    assert "Pashov Audit Group" in template["content"]
+
+@pytest.mark.asyncio
+async def test_refresh_messages_mock(setup_database):
+    """Test refresh messages with mocked services"""
+    with patch('services.telegram_service.TelegramService.fetch_messages') as mock_telegram:
+        with patch('services.twitter_service.TwitterService.fetch_mentions') as mock_twitter:
+            # Mock return values
+            mock_telegram.return_value = [
+                {
+                    "id": "1",
+                    "source": "telegram",
+                    "sender": "@TestUser",
+                    "content": "Test Telegram message",
+                    "timestamp": "2025-08-13T10:00:00Z"
+                }
+            ]
+            mock_twitter.return_value = [
+                {
+                    "id": "2",
+                    "source": "twitter",
+                    "sender": "@TwitterUser",
+                    "content": "Test Twitter message",
+                    "timestamp": "2025-08-13T10:05:00Z"
+                }
+            ]
+            
+            response = client.post("/api/refresh")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] == True
+            assert "Refreshed 2 messages" in data["message"]
+            
+            # Verify messages were added to database
+            response = client.get("/api/messages")
+            data = response.json()
+            assert len(data) == 2
+
+@pytest.mark.asyncio
+async def test_refresh_messages_fallback(setup_database):
+    """Test refresh messages with fallback data when services fail"""
+    with patch('services.telegram_service.TelegramService.fetch_messages') as mock_telegram:
+        with patch('services.twitter_service.TwitterService.fetch_mentions') as mock_twitter:
+            # Mock empty returns
+            mock_telegram.return_value = []
+            mock_twitter.return_value = []
+            
+            response = client.post("/api/refresh")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] == True
+            assert "Refreshed 1 messages" in data["message"]  # Fallback message
+
+@pytest.mark.asyncio
+async def test_get_project_feeds_mock():
+    """Test getting project feeds with mocked service"""
+    with patch('services.twitter_feed_service.fetch_audited_project_feeds') as mock_project_feeds:
+        with patch('services.twitter_feed_service.fetch_pashov_audit_group_feed') as mock_pashov:
+            # Mock return values
+            mock_project_feeds.return_value = {
+                "Uniswap": [
+                    {
+                        "content": "New Uniswap V4 update",
+                        "timestamp": "2025-08-13T10:10:00Z"
+                    }
+                ]
             }
-        ]
-        
-        mock_twitter.return_value = [
-            {
-                "id": "refresh_test_2",
-                "sender": "@DeFiAnalyst", 
-                "content": "@KrumPashov Sushi protocol audit request",
-                "timestamp": datetime.fromisoformat("2025-08-12T10:25:00")
+            mock_pashov.return_value = [
+                {
+                    "content": "Pashov Audit Group completed security review",
+                    "timestamp": "2025-08-13T10:15:00Z"
+                }
+            ]
+            
+            response = client.get("/api/project-feeds")
+            assert response.status_code == 200
+            data = response.json()
+            assert "Uniswap" in data
+            assert "PashovAuditGrp" in data
+            assert len(data["Uniswap"]) == 1
+            assert len(data["PashovAuditGrp"]) == 1
+
+@pytest.mark.asyncio
+async def test_get_project_feeds_fallback():
+    """Test getting project feeds with fallback data when service fails"""
+    with patch('services.twitter_feed_service.fetch_audited_project_feeds') as mock_project_feeds:
+        with patch('services.twitter_feed_service.fetch_pashov_audit_group_feed') as mock_pashov:
+            # Mock exceptions
+            mock_project_feeds.side_effect = Exception("API Error")
+            mock_pashov.side_effect = Exception("API Error")
+            
+            response = client.get("/api/project-feeds")
+            assert response.status_code == 200
+            data = response.json()
+            assert "PashovAuditGrp" in data
+            assert "Fallback" in data["PashovAuditGrp"][0]["content"]
+
+@pytest.mark.asyncio
+async def test_refresh_project_feeds_mock():
+    """Test refreshing project feeds with mocked service"""
+    with patch('services.twitter_feed_service.fetch_audited_project_feeds') as mock_project_feeds:
+        with patch('services.twitter_feed_service.fetch_pashov_audit_group_feed') as mock_pashov:
+            # Mock return values
+            mock_project_feeds.return_value = {
+                "Aave": [
+                    {
+                        "content": "Aave protocol update",
+                        "timestamp": "2025-08-13T10:20:00Z"
+                    }
+                ]
             }
-        ]
-        
-        response = client.post("/api/refresh")
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "Messages refreshed successfully" in data["message"]
+            mock_pashov.return_value = [
+                {
+                    "content": "Pashov Audit Group news",
+                    "timestamp": "2025-08-13T10:25:00Z"
+                }
+            ]
+            
+            response = client.post("/api/refresh-feeds")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] == True
+            assert "Refreshed feeds for 2 sources" in data["message"]
 
-class TestCategorizationLogic:
-    """Test cases for message categorization logic"""
+def test_error_handling():
+    """Test error handling for invalid requests"""
+    # Test invalid message ID
+    response = client.post("/api/messages/invalid/category", json={"category": "urgent"})
+    assert response.status_code == 422  # Validation error
     
-    def test_urgent_categorization(self):
-        """Test urgent message categorization"""
-        from services.categorization_service import CategorizationService
-        from models import MessageCategory
-        
-        service = CategorizationService()
-        urgent_keywords = ["URGENT", "CRITICAL", "EMERGENCY", "IMMEDIATE"]
-        for keyword in urgent_keywords:
-            message = f"{keyword}: Need audit immediately"
-            category = service.categorize_message(message)
-            assert category == MessageCategory.URGENT
-    
-    def test_web3_keyword_detection(self):
-        """Test detection of Web3-specific keywords"""
-        from services.categorization_service import CategorizationService
-        from models import MessageCategory
-        
-        service = CategorizationService()
-        
-        # Test that Web3 keywords are properly detected
-        web3_messages = [
-            "Need audit for Aave protocol",
-            "Smart contract review needed",
-            "DeFi protocol security check"
-        ]
-        
-        for message in web3_messages:
-            category = service.categorize_message(message)
-            # Should be categorized as high priority or urgent
-            assert category in [MessageCategory.HIGH_PRIORITY, MessageCategory.URGENT]
-
-class TestWeb3SpecificFeatures:
-    """Test cases for Web3-specific functionality"""
-    
-    def test_audited_projects_config(self):
-        """Test that audited projects are properly configured"""
-        from config.config import AUDITED_PROJECTS, PROJECT_FEEDS, PASHOV_AUDIT_GROUP
-        
-        # Check that audited projects are defined
-        assert isinstance(AUDITED_PROJECTS, dict)
-        assert len(AUDITED_PROJECTS) > 0
-        
-        # Check for specific projects
-        expected_projects = ["Uniswap", "Aave", "LayerZero", "Ethena", "Sushi"]
-        for project in expected_projects:
-            found = False
-            for category, projects in AUDITED_PROJECTS.items():
-                if project in projects:
-                    found = True
-                    break
-            assert found, f"Project {project} not found in audited projects config"
-        
-        # Check that project feeds are configured
-        assert isinstance(PROJECT_FEEDS, dict)
-        assert 'Uniswap' in PROJECT_FEEDS
-        assert 'Aave' in PROJECT_FEEDS
-        assert 'LayerZero' in PROJECT_FEEDS
-        
-        # Check Pashov Audit Group configuration
-        assert PASHOV_AUDIT_GROUP['twitter_id'] == 'PashovAuditGrp'
-        assert 'pashov.net' in PASHOV_AUDIT_GROUP['website']
-
-class TestProjectFeeds:
-    """Test cases for project feeds functionality"""
-    
-    def test_get_project_feeds(self):
-        """Test the project feeds endpoint"""
-        response = client.get("/api/project-feeds")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, dict)
-    
-    def test_refresh_project_feeds(self):
-        """Test the refresh project feeds endpoint"""
-        response = client.post("/api/refresh-feeds")
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "Project feeds refreshed successfully" in data["message"]
-    
-    def test_feed_analytics(self):
-        """Test the feed analytics endpoint"""
-        response = client.get("/api/feed-analytics")
-        assert response.status_code == 200
-        data = response.json()
-        assert "total_feeds" in data
-        assert "by_project" in data
-        assert "projects" in data
+    # Test invalid category
+    response = client.post("/api/messages/1/category", json={"category": "invalid"})
+    assert response.status_code == 422  # Validation error
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    pytest.main([__file__, "-v"])

@@ -17,18 +17,18 @@ async def fetch_twitter_feed(twitter_id):
         return [
             {
                 "id": f"mock_{twitter_id}_1",
-                "source": "TwitterFeed",
+                "source": "TWITTER_FEED",
                 "sender": twitter_id,
                 "content": f"Mock update from {twitter_id} - New protocol features released!",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(),
                 "category": "routine"
             },
             {
                 "id": f"mock_{twitter_id}_2",
-                "source": "TwitterFeed",
+                "source": "TWITTER_FEED",
                 "sender": twitter_id,
                 "content": f"{twitter_id} announces partnership with major DeFi protocol",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(),
                 "category": "high_priority"
             }
         ]
@@ -47,7 +47,7 @@ async def fetch_twitter_feed(twitter_id):
         return [
             {
                 "id": str(tweet.id),
-                "source": "TwitterFeed",
+                "source": "TWITTER_FEED",
                 "sender": twitter_id,
                 "content": tweet.text or "",
                 "timestamp": tweet.created_at.isoformat(),

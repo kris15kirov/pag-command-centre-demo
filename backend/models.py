@@ -10,8 +10,9 @@ class MessageCategory(enum.Enum):
     ARCHIVE = "archive"
 
 class MessageSource(enum.Enum):
-    TELEGRAM = "telegram"
-    TWITTER = "twitter"
+    TELEGRAM = "TELEGRAM"
+    TWITTER = "TWITTER"
+    TWITTER_FEED = "TWITTER_FEED"
 
 class Message(Base):
     __tablename__ = "messages"
