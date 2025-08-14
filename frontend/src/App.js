@@ -11,19 +11,22 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [newTemplate, setNewTemplate] = useState('');
 
-  const templates = [
+  const [templates, setTemplates] = useState([
     "Thanks for your audit request! Pashov Audit Group (trusted by Uniswap and Aave) will review your {project} and respond soon.",
     "Can you share more details about your {project} smart contract? We've audited similar protocols like Sushi and Ethena.",
     "Interested in LayerZero integration? Pashov Audit Group has audited their cross-chain contracts.",
     "For NFT projects like Blueberry Protocol, audited by us, please provide your contract address.",
     "We're excited to support Arbitrum builders—contact us for an audit!"
-  ];
+  ]);
 
   useEffect(() => {
     console.log("App component mounted - fetching initial data");
     fetchMessages();
     fetchProjectFeeds();
+    loadCustomTemplates();
   }, []);
 
   const fetchMessages = async () => {
@@ -79,7 +82,7 @@ function App() {
       const response = await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
         category: newCategory
       });
-      
+
       if (response.status === 200) {
         setMessages(messages.map(msg =>
           msg.id === id ? { ...msg, category: newCategory } : msg
@@ -129,6 +132,26 @@ function App() {
     } catch (error) {
       console.error('Error copying to clipboard:', error);
       setError("Failed to copy template to clipboard");
+    }
+  };
+
+  const saveTemplate = () => {
+    if (newTemplate.trim()) {
+      const updatedTemplates = [...templates, newTemplate.trim()];
+      // For now, we'll store in localStorage. In a real app, you'd save to backend
+      localStorage.setItem('customTemplates', JSON.stringify(updatedTemplates));
+      setTemplates(updatedTemplates);
+      setNewTemplate('');
+      setShowTemplateModal(false);
+      console.log("Template saved successfully");
+    }
+  };
+
+  const loadCustomTemplates = () => {
+    const savedTemplates = localStorage.getItem('customTemplates');
+    if (savedTemplates) {
+      const customTemplates = JSON.parse(savedTemplates);
+      setTemplates([...templates, ...customTemplates]);
     }
   };
 
@@ -665,14 +688,13 @@ function App() {
               </button>
             </div>
           ))}
-          
+
           {/* Add New Template Button */}
           <div className="template-card border-dashed border-2 border-web3-accent/50 hover:border-web3-accent transition-colors">
             <button
               onClick={() => {
                 console.log('Add new template clicked');
-                // TODO: Implement template creation modal/form
-                alert('Template creation feature coming soon!');
+                setShowTemplateModal(true);
               }}
               className="w-full h-full flex flex-col items-center justify-center py-6 text-web3-accent hover:text-web3-neon transition-colors"
             >
@@ -683,6 +705,60 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Template Creation Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-web3-darker to-gray-900 border border-web3-accent/30 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="web3-title text-xl text-white">Create New Template</h3>
+              <button
+                onClick={() => {
+                  setShowTemplateModal(false);
+                  setNewTemplate('');
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-300 text-sm font-medium mb-2">
+                Template Content
+              </label>
+              <textarea
+                value={newTemplate}
+                onChange={(e) => setNewTemplate(e.target.value)}
+                placeholder="Enter your custom response template... Use {project} for project names"
+                className="w-full h-32 bg-web3-darker border border-web3-accent/30 rounded-lg p-3 text-white placeholder-gray-400 focus:border-web3-accent focus:outline-none resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                💡 Tip: Use {"{project}"} to insert project names dynamically
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowTemplateModal(false);
+                  setNewTemplate('');
+                }}
+                className="flex-1 web3-button-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTemplate}
+                disabled={!newTemplate.trim()}
+                className="flex-1 web3-button disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
