@@ -19,7 +19,12 @@ function App() {
     "Can you share more details about your {project} smart contract? We've audited similar protocols like Sushi and Ethena.",
     "Interested in LayerZero integration? Pashov Audit Group has audited their cross-chain contracts.",
     "For NFT projects like Blueberry Protocol, audited by us, please provide your contract address.",
-    "We're excited to support Arbitrum builders—contact us for an audit!"
+    "We're excited to support Arbitrum builders—contact us for an audit!",
+    "Your {project} audit is in progress. Expect a detailed report within 7 days from Pashov Audit Group.",
+    "Please submit your smart contract code via http://t.me/pashovkrum for a Pashov Audit Group review.",
+    "Congrats on your DeFi launch! Pashov Audit Group can ensure security—book an audit today.",
+    "LayerZero cross-chain issues? Pashov Audit Group's expertise is at your service.",
+    "Security audit completed for {project}. All critical vulnerabilities have been addressed."
   ]);
 
   useEffect(() => {
@@ -143,7 +148,7 @@ function App() {
       setTemplates(updatedTemplates);
       setNewTemplate('');
       setShowTemplateModal(false);
-      console.log("Template saved successfully");
+      console.log("Template saved successfully:", newTemplate.trim());
     }
   };
 
@@ -151,7 +156,23 @@ function App() {
     const savedTemplates = localStorage.getItem('customTemplates');
     if (savedTemplates) {
       const customTemplates = JSON.parse(savedTemplates);
-      setTemplates([...templates, ...customTemplates]);
+      // Only add templates that aren't already in the default list
+      const defaultTemplates = [
+        "Thanks for your audit request! Pashov Audit Group (trusted by Uniswap and Aave) will review your {project} and respond soon.",
+        "Can you share more details about your {project} smart contract? We've audited similar protocols like Sushi and Ethena.",
+        "Interested in LayerZero integration? Pashov Audit Group has audited their cross-chain contracts.",
+        "For NFT projects like Blueberry Protocol, audited by us, please provide your contract address.",
+        "We're excited to support Arbitrum builders—contact us for an audit!",
+        "Your {project} audit is in progress. Expect a detailed report within 7 days from Pashov Audit Group.",
+        "Please submit your smart contract code via http://t.me/pashovkrum for a Pashov Audit Group review.",
+        "Congrats on your DeFi launch! Pashov Audit Group can ensure security—book an audit today.",
+        "LayerZero cross-chain issues? Pashov Audit Group's expertise is at your service.",
+        "Security audit completed for {project}. All critical vulnerabilities have been addressed."
+      ];
+      const newTemplates = customTemplates.filter(template => !defaultTemplates.includes(template));
+      if (newTemplates.length > 0) {
+        setTemplates([...defaultTemplates, ...newTemplates]);
+      }
     }
   };
 
@@ -253,9 +274,9 @@ function App() {
   );
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter">
+    <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter overflow-hidden">
       {/* Left Sidebar: Filters */}
-      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-b md:border-b-0 md:border-r border-web3-accent/30">
+      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-b md:border-b-0 md:border-r border-web3-accent/30 overflow-y-auto h-full">
         <div className="flex items-center mb-6">
           <FaEthereum className="text-2xl text-web3-neon mr-3" />
           <h2 className="web3-title text-xl">Command Center</h2>
@@ -476,7 +497,7 @@ function App() {
       </div>
 
       {/* Main View: Messages */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto h-full">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center">
             <FaRocket className="text-2xl text-web3-neon mr-3" />
@@ -643,31 +664,31 @@ function App() {
         </div>
 
         {(telegramMessages.length === 0 && twitterMessages.length === 0) && !loading && (
-            <div className="text-center py-12 text-gray-400">
-              <FaEthereum className="text-6xl mx-auto mb-6 text-web3-accent animate-pulse" />
-              <p className="text-xl">No messages found for the selected filters</p>
-              <p className="text-sm mt-2">Current filters: Category={category}, Source={sourceFilter}, Project={projectFilter}</p>
-              <p className="text-sm mt-2">Total messages: {messages.length}</p>
-              <button
-                onClick={() => {
-                  console.log('Clearing filters from empty state');
-                  setCategory('all');
-                  setSourceFilter('all');
-                  setProjectFilter('none');
-                }}
-                className="mt-4 web3-button-secondary"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          )}
+          <div className="text-center py-12 text-gray-400">
+            <FaEthereum className="text-6xl mx-auto mb-6 text-web3-accent animate-pulse" />
+            <p className="text-xl">No messages found for the selected filters</p>
+            <p className="text-sm mt-2">Current filters: Category={category}, Source={sourceFilter}, Project={projectFilter}</p>
+            <p className="text-sm mt-2">Total messages: {messages.length}</p>
+            <button
+              onClick={() => {
+                console.log('Clearing filters from empty state');
+                setCategory('all');
+                setSourceFilter('all');
+                setProjectFilter('none');
+              }}
+              className="mt-4 web3-button-secondary"
+            >
+              Clear All Filters
+            </button>
+          </div>
+        )}
 
-          {loading && (
-            <div className="text-center py-12 text-gray-400">
-              <div className="web3-loading mx-auto mb-6"></div>
-              <p className="text-xl">Loading messages...</p>
-            </div>
-          )}
+        {loading && (
+          <div className="text-center py-12 text-gray-400">
+            <div className="web3-loading mx-auto mb-6"></div>
+            <p className="text-xl">Loading messages...</p>
+          </div>
+        )}
 
         {/* Project Feeds Section */}
         <div className="mt-12">
@@ -713,7 +734,7 @@ function App() {
       </div>
 
       {/* Right Sidebar: Templates */}
-      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-t md:border-t-0 md:border-l border-web3-accent/30">
+      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-t md:border-t-0 md:border-l border-web3-accent/30 overflow-y-auto h-full">
         <div className="flex items-center mb-6">
           <FaCopy className="text-2xl text-web3-neon mr-3" />
           <h2 className="web3-title text-xl">Reply Templates</h2>
