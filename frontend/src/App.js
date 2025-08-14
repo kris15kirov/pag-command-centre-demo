@@ -883,66 +883,63 @@ function App() {
             <span className="text-xs text-gray-400 mt-1">Create custom response</span>
           </button>
         </div>
+
+        {/* Template Creation Modal */}
+        {showTemplateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style={{ transform: 'translateZ(0)' }}>
+            <div className="bg-gradient-to-br from-web3-darker to-gray-900 border border-web3-accent/30 rounded-xl p-6 w-full max-w-md mx-4 shadow-lg" style={{ transform: 'translateZ(0)' }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="web3-title text-xl text-white">Create New Template</h3>
+                <button
+                  onClick={() => {
+                    setShowTemplateModal(false);
+                    setNewTemplate('');
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Template Content
+                </label>
+                <textarea
+                  value={newTemplate}
+                  onChange={(e) => setNewTemplate(e.target.value)}
+                  placeholder="Enter your custom response template... Use {project} for project names"
+                  className="w-full h-32 bg-web3-darker border border-web3-accent/30 rounded-lg p-3 text-white placeholder-gray-400 focus:border-web3-accent focus:outline-none resize-none"
+                  style={{ willChange: 'auto' }}
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                  💡 Tip: Use {"{project}"} to insert project names dynamically
+                </p>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowTemplateModal(false);
+                    setNewTemplate('');
+                  }}
+                  className="flex-1 web3-button-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTemplate}
+                  disabled={!newTemplate.trim()}
+                  className="flex-1 web3-button disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Template
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-
-    {/* Template Creation Modal */ }
-  {
-    showTemplateModal && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style={{ transform: 'translateZ(0)' }}>
-        <div className="bg-gradient-to-br from-web3-darker to-gray-900 border border-web3-accent/30 rounded-xl p-6 w-full max-w-md mx-4 shadow-lg" style={{ transform: 'translateZ(0)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="web3-title text-xl text-white">Create New Template</h3>
-            <button
-              onClick={() => {
-                setShowTemplateModal(false);
-                setNewTemplate('');
-              }}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Template Content
-            </label>
-            <textarea
-              value={newTemplate}
-              onChange={(e) => setNewTemplate(e.target.value)}
-              placeholder="Enter your custom response template... Use {project} for project names"
-              className="w-full h-32 bg-web3-darker border border-web3-accent/30 rounded-lg p-3 text-white placeholder-gray-400 focus:border-web3-accent focus:outline-none resize-none"
-              style={{ willChange: 'auto' }}
-            />
-            <p className="text-xs text-gray-400 mt-2">
-              💡 Tip: Use {"{project}"} to insert project names dynamically
-            </p>
-          </div>
-
-          <div className="flex space-x-3">
-            <button
-              onClick={() => {
-                setShowTemplateModal(false);
-                setNewTemplate('');
-              }}
-              className="flex-1 web3-button-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={saveTemplate}
-              disabled={!newTemplate.trim()}
-              className="flex-1 web3-button disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Save Template
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  </div >
   );
 }
 
