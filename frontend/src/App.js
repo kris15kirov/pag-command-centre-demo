@@ -171,7 +171,7 @@ function App() {
     }
   };
 
-  const filteredMessages = messages.filter(msg => {
+  const telegramMessages = messages.filter(msg => {
     const categoryMatch = category === 'all' ||
       (category === 'urgent' && msg.category === 'urgent') ||
       (category === 'high' && msg.category === 'high_priority') ||
@@ -181,35 +181,31 @@ function App() {
       ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project =>
         msg.content && msg.content.includes(project) && projectFilter === project
       );
-    const sourceMatch = sourceFilter === 'all' ||
-      (sourceFilter === 'TELEGRAM' && msg.source === 'TELEGRAM') ||
-      (sourceFilter === 'TWITTER' && (msg.source === 'TWITTER' || msg.source === 'TWITTER_FEED'));
+    const sourceMatch = sourceFilter === 'all' || sourceFilter === 'TELEGRAM';
 
-    // Debug logging for filtering
-    if (category !== 'all') {
-      console.log(`Filtering message ${msg.id}:`, {
-        sender: msg.sender,
-        category: msg.category,
-        source: msg.source,
-        categoryMatch,
-        projectMatch,
-        sourceMatch,
-        currentFilters: { category, projectFilter, sourceFilter }
-      });
-    }
+    return msg.source === 'TELEGRAM' && categoryMatch && projectMatch && sourceMatch;
+  });
 
-    return categoryMatch && projectMatch && sourceMatch;
-  }).sort((a, b) => {
-    // Prioritize Telegram messages above Twitter/X feed
-    if (a.source === 'TELEGRAM' && b.source !== 'TELEGRAM') return -1;
-    if (a.source !== 'TELEGRAM' && b.source === 'TELEGRAM') return 1;
-    return 0;
+  const twitterMessages = messages.filter(msg => {
+    const categoryMatch = category === 'all' ||
+      (category === 'urgent' && msg.category === 'urgent') ||
+      (category === 'high' && msg.category === 'high_priority') ||
+      (category === 'routine' && msg.category === 'routine') ||
+      (category === 'archive' && msg.category === 'archive');
+    const projectMatch = projectFilter === 'none' ||
+      ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi'].some(project =>
+        msg.content && msg.content.includes(project) && projectFilter === project
+      );
+    const sourceMatch = sourceFilter === 'all' || sourceFilter === 'TWITTER';
+
+    return (msg.source === 'TWITTER' || msg.source === 'TWITTER_FEED') && categoryMatch && projectMatch && sourceMatch;
   });
 
   // Debug logging for state changes
   console.log('Current state:', {
     totalMessages: messages.length,
-    filteredMessages: filteredMessages.length,
+    telegramMessages: telegramMessages.length,
+    twitterMessages: twitterMessages.length,
     category,
     projectFilter,
     sourceFilter,
@@ -259,7 +255,7 @@ function App() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gradient-dark text-white font-inter">
       {/* Left Sidebar: Filters */}
-      <div className="w-full md:w-1/5 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-b md:border-b-0 md:border-r border-web3-accent/30">
+      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-b md:border-b-0 md:border-r border-web3-accent/30">
         <div className="flex items-center mb-6">
           <FaEthereum className="text-2xl text-web3-neon mr-3" />
           <h2 className="web3-title text-xl">Command Center</h2>
@@ -516,7 +512,7 @@ function App() {
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <span className="text-gray-300 text-sm">Showing:</span>
-                <span className="text-web3-highlight font-bold text-lg">{filteredMessages.length}</span>
+                <span className="text-web3-highlight font-bold text-lg">{telegramMessages.length + twitterMessages.length}</span>
                 <span className="text-gray-400 text-sm">of {messages.length} messages</span>
               </div>
               {sourceFilter !== 'all' && (
@@ -564,40 +560,89 @@ function App() {
           </div>
         </div>
 
-        <div className="space-y-6" style={{ willChange: 'auto' }}>
-          {filteredMessages.map((message, index) => (
-            <div key={message.id} className="web3-card hover:shadow-lg hover:shadow-web3-accent/20 transition-all duration-200">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <span className="text-lg">{getSourceIcon(message.source)}</span>
-                    <span className="font-semibold text-white">{message.sender}</span>
-                    <span className="text-gray-400 text-sm">{new Date(message.timestamp).toLocaleString()}</span>
+        {/* Telegram Messages Section */}
+        <div className="mb-8">
+          <div className="flex items-center mb-4">
+            <FaTelegram className="text-2xl text-web3-highlight mr-3" />
+            <h3 className="web3-title text-xl">Telegram: {telegramMessages.length} messages</h3>
+          </div>
+          <div className="space-y-4">
+            {telegramMessages.map((message) => (
+              <div key={message.id} className="web3-card hover:shadow-lg hover:shadow-web3-accent/20 transition-all duration-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <span className="text-lg">{getSourceIcon(message.source)}</span>
+                      <span className="font-semibold text-white">{message.sender}</span>
+                      <span className="text-gray-400 text-sm">{new Date(message.timestamp).toLocaleString()}</span>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed">{message.content}</p>
                   </div>
-                  <p className="text-gray-300 leading-relaxed">{message.content}</p>
-                </div>
-                <div className="flex items-center space-x-2 ml-4">
-                  {message.category && (
-                    <span className={`web3-badge ${getCategoryColor(message.category)}`}>
-                      {message.category}
-                    </span>
-                  )}
-                  <select
-                    value={message.category}
-                    onChange={(e) => updateCategory(message.id, e.target.value)}
-                    className="bg-web3-darker border border-web3-accent/30 text-white px-2 py-1 rounded-md text-sm hover:border-web3-accent/50 focus:border-web3-accent focus:outline-none transition-colors"
-                  >
-                    <option value="urgent">🚨 Urgent</option>
-                    <option value="high_priority">⚠️ High Priority</option>
-                    <option value="routine">📋 Routine</option>
-                    <option value="archive">📁 Archive</option>
-                  </select>
+                  <div className="flex items-center space-x-2 ml-4">
+                    {message.category && (
+                      <span className={`web3-badge ${getCategoryColor(message.category)}`}>
+                        {message.category}
+                      </span>
+                    )}
+                    <select
+                      value={message.category}
+                      onChange={(e) => updateCategory(message.id, e.target.value)}
+                      className="bg-web3-darker border border-web3-accent/30 text-white px-2 py-1 rounded-md text-sm hover:border-web3-accent/50 focus:border-web3-accent focus:outline-none transition-colors"
+                    >
+                      <option value="urgent">🚨 Urgent</option>
+                      <option value="high_priority">⚠️ High Priority</option>
+                      <option value="routine">📋 Routine</option>
+                      <option value="archive">📁 Archive</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
 
-          {filteredMessages.length === 0 && !loading && (
+        {/* Twitter (X) Feed Section */}
+        <div className="mb-8">
+          <div className="flex items-center mb-4">
+            <FaTwitter className="text-2xl text-web3-accent mr-3" />
+            <h3 className="web3-title text-xl">Twitter (X) Feed: {twitterMessages.length} messages</h3>
+          </div>
+          <div className="space-y-4">
+            {twitterMessages.map((message) => (
+              <div key={message.id} className="web3-card hover:shadow-lg hover:shadow-web3-accent/20 transition-all duration-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <span className="text-lg">{getSourceIcon(message.source)}</span>
+                      <span className="font-semibold text-white">{message.sender}</span>
+                      <span className="text-gray-400 text-sm">{new Date(message.timestamp).toLocaleString()}</span>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed">{message.content}</p>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
+                    {message.category && (
+                      <span className={`web3-badge ${getCategoryColor(message.category)}`}>
+                        {message.category}
+                      </span>
+                    )}
+                    <select
+                      value={message.category}
+                      onChange={(e) => updateCategory(message.id, e.target.value)}
+                      className="bg-web3-darker border border-web3-accent/30 text-white px-2 py-1 rounded-md text-sm hover:border-web3-accent/50 focus:border-web3-accent focus:outline-none transition-colors"
+                    >
+                      <option value="urgent">🚨 Urgent</option>
+                      <option value="high_priority">⚠️ High Priority</option>
+                      <option value="routine">📋 Routine</option>
+                      <option value="archive">📁 Archive</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {(telegramMessages.length === 0 && twitterMessages.length === 0) && !loading && (
             <div className="text-center py-12 text-gray-400">
               <FaEthereum className="text-6xl mx-auto mb-6 text-web3-accent animate-pulse" />
               <p className="text-xl">No messages found for the selected filters</p>
@@ -623,7 +668,6 @@ function App() {
               <p className="text-xl">Loading messages...</p>
             </div>
           )}
-        </div>
 
         {/* Project Feeds Section */}
         <div className="mt-12">
@@ -669,7 +713,7 @@ function App() {
       </div>
 
       {/* Right Sidebar: Templates */}
-      <div className="w-full md:w-1/5 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-t md:border-t-0 md:border-l border-web3-accent/30">
+      <div className="w-full md:w-1/4 bg-gradient-to-b from-web3-darker to-gray-900 p-6 border-t md:border-t-0 md:border-l border-web3-accent/30">
         <div className="flex items-center mb-6">
           <FaCopy className="text-2xl text-web3-neon mr-3" />
           <h2 className="web3-title text-xl">Reply Templates</h2>
