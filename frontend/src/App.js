@@ -1,6 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync, FaFilter, FaRocket, FaShieldAlt, FaExclamationTriangle, FaChevronDown } from 'react-icons/fa';
+import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync, FaFilter, FaRocket, FaShieldAlt, FaExclamationTriangle, FaChevronDown, FaTrash, FaGripVertical } from 'react-icons/fa';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Template Item Component
+function SortableTemplateItem({ template, index, onDelete, onCopy }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: template });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="template-card mb-4 flex items-center justify-between group"
+    >
+      <div className="flex items-center flex-1">
+        <button
+          {...attributes}
+          {...listeners}
+          className="mr-3 text-gray-400 hover:text-web3-accent transition-colors cursor-grab active:cursor-grabbing"
+        >
+          <FaGripVertical />
+        </button>
+        <p className="message-content text-sm flex-1">{template}</p>
+      </div>
+      <div className="flex items-center space-x-2 ml-3">
+        <button
+          onClick={() => onCopy(template)}
+          className="web3-button-secondary flex items-center text-xs px-2 py-1"
+        >
+          <FaCopy className="mr-1" />
+          Copy
+        </button>
+        <button
+          onClick={() => onDelete(index)}
+          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors"
+        >
+          <FaTrash />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -13,6 +83,14 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [newTemplate, setNewTemplate] = useState('');
+
+  // Drag and Drop Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const [templates, setTemplates] = useState([
     "Thanks for your audit request! Pashov Audit Group (trusted by Uniswap and Aave) will review your {project} and respond soon.",
@@ -143,7 +221,6 @@ function App() {
   const saveTemplate = () => {
     if (newTemplate.trim()) {
       const updatedTemplates = [...templates, newTemplate.trim()];
-      // For now, we'll store in localStorage. In a real app, you'd save to backend
       localStorage.setItem('customTemplates', JSON.stringify(updatedTemplates));
       setTemplates(updatedTemplates);
       setNewTemplate('');
@@ -173,6 +250,33 @@ function App() {
       if (newTemplates.length > 0) {
         setTemplates([...defaultTemplates, ...newTemplates]);
       }
+    }
+  };
+
+  // Drag and Drop Handlers
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setTemplates((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+
+        const newTemplates = arrayMove(items, oldIndex, newIndex);
+        // Save to localStorage
+        localStorage.setItem('customTemplates', JSON.stringify(newTemplates));
+        console.log("Templates reordered:", newTemplates);
+        return newTemplates;
+      });
+    }
+  };
+
+  const deleteTemplate = (index) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      const newTemplates = templates.filter((_, i) => i !== index);
+      setTemplates(newTemplates);
+      localStorage.setItem('customTemplates', JSON.stringify(newTemplates));
+      console.log("Template deleted at index:", index);
     }
   };
 
@@ -740,36 +844,45 @@ function App() {
           <h2 className="web3-title text-xl">Reply Templates</h2>
         </div>
 
-        <div className="space-y-4">
-          {templates.map((template, i) => (
-            <div key={i} className="template-card">
-              <p className="message-content text-sm mb-3">{template}</p>
-              <button
-                onClick={() => copyToClipboard(template)}
-                className="web3-button-secondary flex items-center text-xs w-full justify-center"
-              >
-                <FaCopy className="mr-2" />
-                Copy Template
-              </button>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={templates}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-4">
+              {templates.map((template, index) => (
+                <SortableTemplateItem
+                  key={template}
+                  template={template}
+                  index={index}
+                  onDelete={deleteTemplate}
+                  onCopy={copyToClipboard}
+                />
+              ))}
             </div>
-          ))}
+          </SortableContext>
+        </DndContext>
 
-          {/* Add New Template Button */}
-          <div className="template-card border-dashed border-2 border-web3-accent/50 hover:border-web3-accent transition-colors">
-            <button
-              onClick={() => {
-                console.log('Add new template clicked');
-                setShowTemplateModal(true);
-              }}
-              className="w-full h-full flex flex-col items-center justify-center py-6 text-web3-accent hover:text-web3-neon transition-colors"
-            >
-              <span className="text-2xl mb-2">+</span>
-              <span className="font-medium">Add New Template</span>
-              <span className="text-xs text-gray-400 mt-1">Create custom response</span>
-            </button>
-          </div>
+        {/* Add New Template Button */}
+        <div className="template-card border-dashed border-2 border-web3-accent/50 hover:border-web3-accent transition-colors mt-4">
+          <button
+            onClick={() => {
+              console.log('Add new template clicked');
+              setShowTemplateModal(true);
+            }}
+            className="w-full h-full flex flex-col items-center justify-center py-6 text-web3-accent hover:text-web3-neon transition-colors"
+          >
+            <span className="text-2xl mb-2">+</span>
+            <span className="font-medium">Add New Template</span>
+            <span className="text-xs text-gray-400 mt-1">Create custom response</span>
+          </button>
         </div>
       </div>
+    </div>
 
       {/* Template Creation Modal */}
       {showTemplateModal && (
