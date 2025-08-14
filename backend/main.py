@@ -222,7 +222,7 @@ async def refresh_messages(db: Session = Depends(get_db)):
         
         if not all_messages:
             logger.warning("No messages retrieved from any source")
-            # Add fallback data as suggested by Grok
+            # Add fallback data for better user experience
             all_messages = [
                 {
                     "id": "fallback1",
@@ -288,7 +288,7 @@ async def get_project_feeds():
         
     except Exception as e:
         logger.error(f"Error fetching project feeds: {str(e)}")
-        # Return fallback data as suggested by Grok
+        # Return fallback data for better user experience
         fallback_feeds = {
             "PashovAuditGrp": [
                 {

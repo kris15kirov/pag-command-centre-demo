@@ -127,7 +127,7 @@ function App() {
     } catch (error) {
       console.error('Error fetching messages:', error);
       setError(`Failed to fetch messages: ${error.message}`);
-      // Add fallback data as suggested by Grok
+      // Add fallback data for better user experience
       setMessages([
         {
           id: 1,
@@ -149,7 +149,7 @@ function App() {
       setProjectFeeds(response.data);
     } catch (error) {
       console.error('Error fetching project feeds:', error);
-      // Add fallback data as suggested by Grok
+      // Add fallback data for better user experience
       setProjectFeeds({
         "PashovAuditGrp": [
           {
@@ -886,8 +886,9 @@ function App() {
       </div>
     </div>
 
-    {/* Template Creation Modal */}
-    {showTemplateModal && (
+    {/* Template Creation Modal */ }
+  {
+    showTemplateModal && (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style={{ transform: 'translateZ(0)' }}>
         <div className="bg-gradient-to-br from-web3-darker to-gray-900 border border-web3-accent/30 rounded-xl p-6 w-full max-w-md mx-4 shadow-lg" style={{ transform: 'translateZ(0)' }}>
           <div className="flex items-center justify-between mb-4">
@@ -939,8 +940,9 @@ function App() {
           </div>
         </div>
       </div>
-    )}
-  </div>
+    )
+  }
+  </div >
   );
 }
 
