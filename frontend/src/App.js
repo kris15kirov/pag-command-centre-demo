@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync, FaFilter, FaRocket, FaShieldAlt, FaExclamationTriangle, FaChevronDown, FaExclamationCircle, FaClock, FaArchive } from 'react-icons/fa';
+import { FaEthereum, FaTelegram, FaTwitter, FaCopy, FaSync, FaFilter, FaRocket, FaShieldAlt, FaExclamationTriangle, FaChevronDown } from 'react-icons/fa';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -76,18 +76,23 @@ function App() {
   const updateCategory = async (id, newCategory) => {
     try {
       console.log(`Updating message ${id} category to ${newCategory}`);
-      await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
+      const response = await axios.post(`http://localhost:8000/api/messages/${id}/category`, {
         category: newCategory
       });
-      setMessages(messages.map(msg =>
-        msg.id === id ? { ...msg, category: newCategory } : msg
-      ));
-      console.log("Category updated successfully");
+      
+      if (response.status === 200) {
+        setMessages(messages.map(msg =>
+          msg.id === id ? { ...msg, category: newCategory } : msg
+        ));
+        console.log("Category updated successfully");
+      }
     } catch (error) {
       console.error('Error updating category:', error);
       setError(`Failed to update category: ${error.message}`);
     }
   };
+
+
 
   const refreshMessages = async () => {
     try {
@@ -127,15 +132,7 @@ function App() {
     }
   };
 
-  const getCategoryBadgeClass = (cat) => {
-    switch (cat) {
-      case 'urgent': return 'web3-badge-urgent';
-      case 'high':
-      case 'high_priority': return 'web3-badge-high';
-      case 'routine': return 'web3-badge-routine';
-      default: return 'web3-badge';
-    }
-  };
+
 
   const getSourceIcon = (source) => {
     return source === 'TELEGRAM' ? <FaTelegram className="inline text-web3-highlight" /> : <FaTwitter className="inline text-web3-accent" />;
@@ -179,6 +176,11 @@ function App() {
     }
 
     return categoryMatch && projectMatch && sourceMatch;
+  }).sort((a, b) => {
+    // Prioritize Telegram messages above Twitter/X feed
+    if (a.source === 'TELEGRAM' && b.source !== 'TELEGRAM') return -1;
+    if (a.source !== 'TELEGRAM' && b.source === 'TELEGRAM') return 1;
+    return 0;
   });
 
   // Debug logging for state changes
@@ -217,7 +219,7 @@ function App() {
   // Run test when category changes
   React.useEffect(() => {
     testFiltering();
-  }, [category]);
+  }, [category, testFiltering]);
 
   const auditedProjects = ['Uniswap', 'Aave', 'LayerZero', 'Ethena', 'Sushi', 'Arbitrum', 'Blueberry'];
 
@@ -557,9 +559,16 @@ function App() {
                       {message.category}
                     </span>
                   )}
-                  <button className="text-gray-400 hover:text-white transition-colors">
-                    <FaChevronDown />
-                  </button>
+                  <select
+                    value={message.category}
+                    onChange={(e) => updateCategory(message.id, e.target.value)}
+                    className="bg-web3-darker border border-web3-accent/30 text-white px-2 py-1 rounded-md text-sm hover:border-web3-accent/50 focus:border-web3-accent focus:outline-none transition-colors"
+                  >
+                    <option value="urgent">🚨 Urgent</option>
+                    <option value="high_priority">⚠️ High Priority</option>
+                    <option value="routine">📋 Routine</option>
+                    <option value="archive">📁 Archive</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -656,6 +665,22 @@ function App() {
               </button>
             </div>
           ))}
+          
+          {/* Add New Template Button */}
+          <div className="template-card border-dashed border-2 border-web3-accent/50 hover:border-web3-accent transition-colors">
+            <button
+              onClick={() => {
+                console.log('Add new template clicked');
+                // TODO: Implement template creation modal/form
+                alert('Template creation feature coming soon!');
+              }}
+              className="w-full h-full flex flex-col items-center justify-center py-6 text-web3-accent hover:text-web3-neon transition-colors"
+            >
+              <span className="text-2xl mb-2">+</span>
+              <span className="font-medium">Add New Template</span>
+              <span className="text-xs text-gray-400 mt-1">Create custom response</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
